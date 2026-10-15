@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Public schemas, templates, and shared configurations for Astrail agent workspaces.">
+    <title>Astrail resources</title>
+    <style>
+      :root { color-scheme: light dark; font-family: system-ui, sans-serif; background: #f5f6f8; color: #182328; }
+      body { margin: 0; }
+      main { max-width: 920px; margin: 0 auto; padding: 80px 24px; }
+      .label { color: #286b62; font-size: 13px; font-weight: 650; letter-spacing: .12em; text-transform: uppercase; }
+      h1 { font-size: clamp(36px, 6vw, 60px); letter-spacing: -.045em; margin: 18px 0; }
+      .intro { font-size: 20px; color: #526169; line-height: 1.6; max-width: 650px; }
+      .status { padding: 18px 22px; margin: 32px 0; border: 1px solid #dce2e5; border-radius: 12px; line-height: 1.6; }
+      .catalogs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+      article { background: #fff; border: 1px solid #dce2e5; border-radius: 12px; padding: 24px; }
+      h2 { font-size: 20px; margin: 0 0 12px; }
+      article p { color: #526169; line-height: 1.6; min-height: 76px; }
+      a { color: #176b60; text-underline-offset: 4px; }
+      a:focus-visible { outline: 3px solid #61a99f; outline-offset: 5px; }
+      footer { margin-top: 40px; color: #526169; font-size: 14px; }
+      @media (max-width: 650px) { main { padding-top: 48px; } .catalogs { grid-template-columns: 1fr; } article p { min-height: 0; } }
+      @media (prefers-color-scheme: dark) { :root { background: #111a1d; color: #edf4f4; } article { background: #182429; } .status, article { border-color: #33444b; } .intro, article p, footer { color: #acbdc3; } a, .label { color: #83d6c8; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="label">Astrail / Resources</div>
+      <h1>Resources for your workspace.</h1>
+      <p class="intro">Public schemas, templates, and shared configurations for agent workspaces.</p>
+      <p class="status">The resource service is ready. Catalogs are empty while the first public release is being prepared.</p>
+      <section class="catalogs" aria-label="Resource catalogs">
+        <article>
+          <h2>Schemas</h2>
+          <p>JSON Schema definitions for workspace files and shared configuration.</p>
+          <a href="schema/index.json">Open schema catalog</a>
+        </article>
+        <article>
+          <h2>Templates</h2>
+          <p>Versioned starting points for creating a new workspace.</p>
+          <a href="templates/index.json">Open template catalog</a>
+        </article>
+        <article>
+          <h2>Shared configurations</h2>
+          <p>Reusable configuration fragments with public dependencies.</p>
+          <a href="configs/index.json">Open configuration catalog</a>
+        </article>
+      </section>
+      <footer><a href="https://github.com/sklme/astrail">Source repository</a> · <a href="https://github.com/sklme/astrail/blob/main/LICENSE">Apache-2.0</a></footer>
+    </main>
+  </body>
+</html>
