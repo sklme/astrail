@@ -1,0 +1,53 @@
+name: Deploy public resources
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - public-resources/**
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate resource catalogs
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('public-resources')
+          assert (root / 'index.html').is_file()
+          for name, keys in [('schema', ['schemas']), ('templates', ['packages', 'templates']), ('configs', ['configs'])]:
+              data = json.loads((root / name / 'index.json').read_text())
+              assert data['formatVersion'] == 1
+              for key in keys:
+                  assert isinstance(data[key], list), (name, key)
+          PY
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: public-resources
+
+  deploy:
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - name: Deploy resources
+        id: deployment
+        uses: actions/deploy-pages@v4
