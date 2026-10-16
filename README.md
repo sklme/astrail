@@ -6,7 +6,7 @@ Astrail organizes repositories, environments, shared configuration, context, and
 
 ## Quick start
 
-Requires Node.js 22.12 or newer, Git, and pnpm (11.20.0 is the default for new workspaces).
+The commands below require Node.js 22.13 or newer, Git, and pnpm 11.20.0 (the default for new workspaces). The CLI runtime itself supports Node.js 22.12+ when used with a compatible package manager.
 
 ```sh
 mkdir my-workspace

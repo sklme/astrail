@@ -1,6 +1,6 @@
 # astrail
 
-Astrail CLI for agent-oriented multi-repository workspaces. Requires Node.js 22.12+ and Git.
+Astrail CLI for agent-oriented multi-repository workspaces. The CLI runtime requires Node.js 22.12+ and Git; the default pnpm 11.20.0 workflow below requires Node.js 22.13+.
 
 ```sh
 pnpm dlx astrail@0.9.1 init --name my-workspace

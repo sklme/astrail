@@ -2,7 +2,7 @@
 
 Issues and pull requests are welcome. Create a focused branch from `main`, use Conventional Commit messages, and explain the user-visible behavior and compatibility impact. Public behavior changes should include an OpenSpec change and meaningful tests. Package code imports other packages through their public exports.
 
-Use Node.js 22.12+ and the pnpm version in `package.json`:
+Use Node.js 22.13+ and the pnpm version in `package.json`:
 
 ```sh
 corepack pnpm install --frozen-lockfile
