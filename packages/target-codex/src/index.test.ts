@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises"
+import { lstat, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { pathExists, resolveWorkspace, runProcess } from "astrail-core"
@@ -21,6 +21,46 @@ import {
 } from "./index.js"
 
 describe("Codex target", () => {
+  it("migrates global-mode built-in Skills from links to durable copies and supports switching back", async () => {
+    const root = await mkdtemp(join(tmpdir(), "astrail-global-skills-"))
+    try {
+      const manifest =
+        "apiVersion: astrail.dev/v1alpha1\nkind: Workspace\nmetadata: { name: global }\n"
+      await writeFile(join(root, "astrail.yaml"), manifest)
+      expect(
+        (
+          await syncCodexProjection(
+            await planCodexProjection(await resolveWorkspace({ cwd: root })),
+          )
+        ).success,
+      ).toBe(true)
+      const skill = join(root, ".agents/skills/astrail-inspection")
+      expect((await lstat(skill)).isSymbolicLink()).toBe(true)
+      await writeFile(join(root, "astrail.yaml"), `${manifest}runtime: { mode: global }\n`)
+      const plan = await planCodexProjection(await resolveWorkspace({ cwd: root }))
+      expect(
+        plan.artifacts
+          .filter((artifact) => artifact.identity.startsWith("astrail/builtin-"))
+          .every((artifact) => artifact.ownership === "derived-copy"),
+      ).toBe(true)
+      expect((await syncCodexProjection(plan)).success).toBe(true)
+      expect((await lstat(skill)).isSymbolicLink()).toBe(false)
+      expect(await readFile(join(skill, "SKILL.md"), "utf8")).toContain("Astrail Inspection")
+      expect((await planCodexProjection(await resolveWorkspace({ cwd: root }))).changes).toEqual([])
+      await writeFile(join(root, "astrail.yaml"), manifest)
+      expect(
+        (
+          await syncCodexProjection(
+            await planCodexProjection(await resolveWorkspace({ cwd: root })),
+          )
+        ).success,
+      ).toBe(true)
+      expect((await lstat(skill)).isSymbolicLink()).toBe(true)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   it("refuses projection writes when the workspace requires an incompatible Astrail version", async () => {
     const root = await mkdtemp(join(tmpdir(), "astrail-codex-requires-"))
     try {

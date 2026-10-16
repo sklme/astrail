@@ -20,14 +20,13 @@
     "test:watch": "vitest",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "check": "pnpm templates:check && pnpm lint && pnpm boundaries && pnpm version:check && pnpm typecheck && pnpm test && pnpm build && pnpm openspec:validate",
+    "check": "pnpm templates:check && pnpm lint && pnpm boundaries && pnpm version:check && pnpm typecheck && pnpm test && pnpm build",
     "boundaries": "node scripts/check-boundaries.mjs",
     "changeset": "changeset",
     "release:status": "changeset status",
     "release:version": "changeset version && pnpm version:check",
     "release:publish": "pnpm check && changeset publish",
     "version:check": "node scripts/check-package-versions.mjs",
-    "openspec:validate": "openspec validate define-astrail-foundation --strict",
     "schema:generate": "pnpm --filter astrail-schema generate",
     "templates:check": "pnpm --filter astrail-templates check",
     "resources:check": "node --test scripts/check-public-resources.test.mjs && node scripts/check-public-resources.mjs"
@@ -37,7 +36,6 @@
     "@changesets/cli": "3.0.1",
     "@types/node": "22.20.1",
     "typescript": "7.0.2",
-    "vitest": "4.1.10",
-    "@fission-ai/openspec": "1.13.1"
+    "vitest": "4.1.10"
   }
 }

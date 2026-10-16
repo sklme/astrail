@@ -179,6 +179,8 @@ export async function planCodexProjection(
     })
   }
 
+  const builtinStrategy =
+    workspace.runtime.mode === "global" && strategy !== "manifest" ? "copy" : strategy
   const aliases = new Set<string>()
   for (const builtIn of BUILT_IN_SKILLS) {
     const builtInSkillSource = fileURLToPath(new URL(`../skills/${builtIn.alias}`, import.meta.url))
@@ -200,9 +202,9 @@ export async function planCodexProjection(
     const artifact: ProjectionArtifact = {
       path: relative(workspace.root, destination),
       ownership:
-        strategy === "copy"
+        builtinStrategy === "copy"
           ? "derived-copy"
-          : strategy === "manifest"
+          : builtinStrategy === "manifest"
             ? "manifest-entry"
             : "derived-link",
       identity: builtIn.identity,
@@ -210,10 +212,15 @@ export async function planCodexProjection(
       integrity: await hashPath(builtInSkillSource),
     }
     artifacts.push(artifact)
-    if (!(await projectionIsCurrent(workspace.root, artifact, strategy, previous))) {
+    if (!(await projectionIsCurrent(workspace.root, artifact, builtinStrategy, previous))) {
       changes.push({
         path: destination,
-        kind: strategy === "copy" ? "copy" : strategy === "manifest" ? "manifest" : "link",
+        kind:
+          builtinStrategy === "copy"
+            ? "copy"
+            : builtinStrategy === "manifest"
+              ? "manifest"
+              : "link",
         description: `Expose the built-in ${builtIn.alias} Skill`,
       })
     }

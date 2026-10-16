@@ -10,7 +10,7 @@ import {
 
 describe("published Schema resources", () => {
   it("uses identical business fields for Workspace and shared fragments", () => {
-    const { kind, metadata, ...workspaceFields } = workspaceSchema.properties as Record<
+    const { kind, metadata, runtime, ...workspaceFields } = workspaceSchema.properties as Record<
       string,
       unknown
     >
@@ -19,6 +19,8 @@ describe("published Schema resources", () => {
       unknown
     >
     expect(kind).toEqual({ const: "Workspace" })
+    expect(runtime).toEqual((localSchema.properties as Record<string, unknown>).runtime)
+    expect((configSchema.properties as Record<string, unknown>).runtime).toBeUndefined()
     expect(metadata).toEqual(configMetadata)
     expect(configFields).toEqual(workspaceFields)
     expect(configSchema.required).toBeUndefined()

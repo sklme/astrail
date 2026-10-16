@@ -13,7 +13,7 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { pathExists, runProcess } from "astrail-core"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { readLaunchOptions, selectLocalRuntime } from "./local-runtime.js"
 import { CLI_VERSION } from "./program.js"
 import { ASTRAIL_PACKAGE } from "./workspace-package.js"
@@ -21,6 +21,7 @@ import { ASTRAIL_PACKAGE } from "./workspace-package.js"
 const globalEntry = fileURLToPath(new URL("../dist/index.js", import.meta.url))
 const roots: string[] = []
 afterEach(async () => {
+  vi.unstubAllEnvs()
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
 })
 
@@ -59,6 +60,98 @@ async function install(
 }
 
 describe("workspace runtime selection", () => {
+  it("uses a user global preference before inspecting an obsolete or corrupt local dependency", async () => {
+    const root = await fixture("~0.3.0")
+    const entry = await install(root)
+    await writeFile(join(root, "package.json"), "{broken")
+    const user = join(root, "user.yaml")
+    await writeFile(user, "runtime: { mode: global }\n")
+    vi.stubEnv("ASTRAIL_USER_CONFIG", user)
+    expect(
+      await selectLocalRuntime({ cwd: root, command: "status", json: false }, globalEntry),
+    ).toBeUndefined()
+    await expect(
+      selectLocalRuntime({ cwd: root, command: "status", json: false }, entry),
+    ).rejects.toThrow("globally installed")
+    const executed = await runProcess(process.execPath, [
+      globalEntry,
+      "--cwd",
+      root,
+      "--json",
+      "status",
+    ])
+    const envelope = JSON.parse(executed.stdout)
+    expect(envelope.data.runtime).toMatchObject({
+      mode: "global",
+      modeSource: user,
+      source: "launcher",
+      version: CLI_VERSION,
+      executable: globalEntry,
+    })
+    expect(envelope.data.config.runtime).toEqual({ mode: "global" })
+  })
+
+  it("honors a workspace local override of the user default", async () => {
+    const root = await fixture("~0.3.0")
+    const entry = await install(root)
+    const user = join(root, "user.yaml")
+    await writeFile(user, "runtime: { mode: global }\n")
+    vi.stubEnv("ASTRAIL_USER_CONFIG", user)
+    await appendFile(join(root, "astrail.yaml"), "runtime: { mode: local }\n")
+    expect(
+      await selectLocalRuntime({ cwd: root, command: "status", json: false }, globalEntry),
+    ).toBe(entry)
+  })
+
+  it("requires a local installation for explicit local mode even without a package declaration", async () => {
+    const root = await fixture()
+    await appendFile(join(root, "astrail.yaml"), "runtime: { mode: local }\n")
+    await expect(
+      selectLocalRuntime({ cwd: root, command: "status", json: false }, globalEntry),
+    ).rejects.toThrow("runtime.mode is local")
+  })
+
+  it("continues enforcing workspace compatibility when global mode ignores a stale local version", async () => {
+    const root = await fixture("~0.3.0")
+    await install(root)
+    await appendFile(
+      join(root, "astrail.yaml"),
+      'runtime: { mode: global }\nrequires: { astrail: ">=99.0.0" }\n',
+    )
+    const executed = await runProcess(process.execPath, [
+      globalEntry,
+      "--cwd",
+      root,
+      "--json",
+      "sync",
+      "--yes",
+    ])
+    expect(executed.exitCode).not.toBe(0)
+    expect(
+      JSON.parse(executed.stdout).diagnostics.some(
+        (item: { code: string }) => item.code === "ASTR1202",
+      ),
+    ).toBe(true)
+    expect(await pathExists(join(root, "AGENTS.md"))).toBe(false)
+  })
+
+  it("routes global init before a missing dependency and rejects invalid runtime flags", async () => {
+    const root = await fixture("~0.3.0")
+    expect(
+      await selectLocalRuntime(
+        readLaunchOptions(["init", "--cwd", root, "--runtime=global"]),
+        globalEntry,
+      ),
+    ).toBeUndefined()
+    expect(() => readLaunchOptions(["init", "--runtime", "latest"])).toThrow("global or local")
+    await expect(
+      selectLocalRuntime(
+        readLaunchOptions(["status", "--cwd", root, "--runtime=global"]),
+        globalEntry,
+      ),
+    ).rejects.toThrow("init option")
+  })
+
   it("accepts patch updates within ~ and discovers the workspace from a child repository", async () => {
     const root = await fixture("~0.3.0")
     const entry = await install(root)

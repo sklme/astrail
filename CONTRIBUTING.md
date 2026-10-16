@@ -1,6 +1,6 @@
 # Contributing to Astrail
 
-Issues and pull requests are welcome. Create a focused branch from `main`, use Conventional Commit messages, and explain the user-visible behavior and compatibility impact. Public behavior changes should include an OpenSpec change and meaningful tests. Package code imports other packages through their public exports.
+Issues and pull requests are welcome. Create a focused branch from `main`, use Conventional Commit messages, and explain the user-visible behavior and compatibility impact. Public behavior changes should include documentation and meaningful tests. Package code imports other packages through their public exports.
 
 Use Node.js 22.13+ and the pnpm version in `package.json`:
 
@@ -10,7 +10,7 @@ corepack pnpm check
 corepack pnpm resources:check
 ```
 
-OpenSpec is a pinned development dependency; a separate global installation is unnecessary.
+OpenSpec is no longer required. Earlier planning documents are retained in `planning/openspec-archive/` as historical context, not current execution instructions.
 
 ## Synchronization and releases
 

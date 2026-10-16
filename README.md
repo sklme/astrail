@@ -6,28 +6,48 @@ Astrail organizes repositories, environments, shared configuration, context, and
 
 ## Quick start
 
-The commands below require Node.js 22.13 or newer, Git, and pnpm 11.20.0 (the default for new workspaces). The CLI runtime itself supports Node.js 22.12+ when used with a compatible package manager.
+Node.js 22.12+ and Git are required. A global CLI is convenient when you maintain several workspaces:
 
 ```sh
-mkdir my-workspace
+npm install -g astrail@0.10.0
+astrail --cwd ./my-workspace init --name my-workspace --runtime global
 cd my-workspace
-pnpm dlx astrail@0.9.1 init --name my-workspace
-pnpm exec astrail --json status
-pnpm exec astrail bootstrap --dry-run
-pnpm exec astrail bootstrap --yes
+astrail --json status
+astrail bootstrap --dry-run
+astrail bootstrap --yes
 ```
 
-`init` writes `astrail.yaml` and a workspace-local CLI dependency, then installs it. Review bootstrap output before applying. Bootstrap prepares declared resources and projects built-in Skills; configuration setup Skills are handed to your agent for execution. Resource availability does not mean setup has completed.
+Global initialization creates workspace configuration and an editor workspace without adding or installing a local CLI dependency. Review bootstrap output before applying. Configuration setup Skills are handed to your agent for execution; resource availability does not mean setup has completed.
 
-```sh
-pnpm exec astrail repo add --help
-pnpm exec astrail skill --help
-pnpm exec astrail config show
-pnpm exec astrail doctor
-pnpm exec astrail open --dry-run
+For a team-pinned local CLI, use `astrail init --runtime local`. Commit the generated package.json and lockfile and install them on other machines. Local mode requires a valid installation in the workspace's own node_modules. Local installation defaults to pnpm 11.20.0, which requires Node.js 22.13+.
+
+## Runtime preferences and upgrades
+
+Selection priority is `astrail.local.yaml`, then `astrail.yaml`, then the user preference, then legacy automatic selection. In a workspace manifest, add `runtime: { mode: global }` or `runtime: { mode: local }`. Personal workspace overrides need the local overlay headers:
+
+```yaml
+apiVersion: astrail.dev/v1alpha1
+kind: WorkspaceLocal
+runtime:
+  mode: global
 ```
 
-Use `--help` on any command for supported options and `--json` for structured output. A global or one-shot launcher delegates to the workspace-local version. Keep the dependency and lockfile committed when upgrading.
+To use one CLI across all workspaces without an explicit mode, create `~/.config/astrail/config.yaml` containing:
+
+```yaml
+runtime:
+  mode: global
+```
+
+`XDG_CONFIG_HOME` relocates the config directory; `ASTRAIL_USER_CONFIG` selects an explicit user config file. User config supports only runtime preferences. Shared fragments loaded through extends cannot choose an executable. `init --runtime` persists an explicit workspace choice; inherited user defaults are not pinned into the workspace.
+
+Upgrade the global launcher to 0.10.0 or a newer compatible version before using this setting. Older launchers and directly invoked old local CLIs do not understand it. Run the global `astrail` command, rather than `pnpm exec astrail`, in global mode. The new launcher reads preferences before inspecting or delegating to obsolete local dependencies, so existing local packages may remain installed. Global mode uses the invoking CLI (including an explicit one-shot launcher); it does not search other Node installations for a global executable.
+
+Both modes enforce workspace and shared-config `requires.astrail` ranges. A range such as `>=0.9.0 <0.10.0` must be reviewed and migrated before using 0.10.0. This release also removes the obsolete workspace import command; Skill import remains available. Ordinary commands never automatically upgrade the CLI.
+
+Use `astrail status --json` to inspect `runtime.version`, `mode`, `modeSource`, `source` (`launcher` or `local`), and `executable`. With no mode configured, legacy behavior is preserved: prefer an installed local CLI, require declared dependencies to be installed, and otherwise use the invoking CLI. Global built-in Skills are copied into the workspace so replacing the installation cannot break links; review `astrail sync --dry-run` and apply `astrail sync` to migrate existing links or refresh copies. Manifest-only projection remains unchanged.
+
+After switching and syncing, optionally remove only the obsolete CLI dependency with the workspace's package manager. Other dependencies and lockfile contents are preserved by configuration changes. Use `--help` for command options and `--json` for structured output.
 
 ## Configuration and resources
 
@@ -45,7 +65,7 @@ See [the minimal workspace](examples/minimal/astrail.yaml) and [shared configura
 | `astrail-target-codex` | Codex guidance and built-in Skills |
 | `astrail-templates` | Versioned template catalog (currently empty) |
 
-This is the first public source synchronization, at version 0.9.1. Package changelogs also describe earlier development versions; those versions were not published through this repository. Full documentation is not included here. This README, CLI help, examples, and public resources provide the public usage entry points.
+Public releases started at 0.9.1. Package changelogs also describe earlier development versions that were not published through this repository. Full documentation is not included here. This README, CLI help, examples, and public resources provide the public usage entry points.
 
 ## Development
 

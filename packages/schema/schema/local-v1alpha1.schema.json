@@ -6,28 +6,50 @@
   "additionalProperties": false,
   "required": ["apiVersion", "kind"],
   "properties": {
-    "$schema": { "type": "string", "format": "uri-reference" },
-    "apiVersion": { "const": "astrail.dev/v1alpha1" },
-    "kind": { "const": "WorkspaceLocal" },
+    "$schema": {
+      "type": "string",
+      "format": "uri-reference"
+    },
+    "apiVersion": {
+      "const": "astrail.dev/v1alpha1"
+    },
+    "kind": {
+      "const": "WorkspaceLocal"
+    },
     "repositories": {
       "type": "object",
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "disabled": { "type": "boolean" },
+          "disabled": {
+            "type": "boolean"
+          },
           "source": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
-              "path": { "type": "string", "minLength": 1 }
+              "path": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           }
         }
       }
     },
-    "environments": { "type": "object", "additionalProperties": { "type": "object" } },
-    "targets": { "type": "object", "additionalProperties": { "type": "object" } },
+    "environments": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object"
+      }
+    },
+    "targets": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object"
+      }
+    },
     "editor": {
       "type": "object",
       "additionalProperties": false,
@@ -68,11 +90,38 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "enabled": { "type": "boolean", "default": true },
-        "maxLines": { "type": "integer", "minimum": 2, "maximum": 100000, "default": 2000 },
-        "maxBytes": { "type": "integer", "minimum": 4096, "maximum": 67108864, "default": 4194304 }
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "maxLines": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 100000,
+          "default": 2000
+        },
+        "maxBytes": {
+          "type": "integer",
+          "minimum": 4096,
+          "maximum": 67108864,
+          "default": 4194304
+        }
       }
     },
-    "extensions": { "type": "object", "additionalProperties": true }
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": {
+          "enum": ["global", "local"],
+          "description": "Select the invoking CLI (global) or require the workspace-local CLI (local). Omit to inherit the user preference and legacy selection."
+        }
+      }
+    }
   }
 }

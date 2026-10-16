@@ -1,7 +1,12 @@
 import { spawn } from "node:child_process"
 import { lstat, realpath } from "node:fs/promises"
-import { dirname, join, resolve } from "node:path"
-import { discoverWorkspaceRoot, pathExists } from "astrail-core"
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path"
+import {
+  discoverWorkspaceRoot,
+  pathExists,
+  type RuntimeMode,
+  readRuntimePreference,
+} from "astrail-core"
 import { satisfies, valid } from "semver"
 import { requireWorkspaceRuntime } from "./runtime-check.js"
 import {
@@ -23,6 +28,7 @@ export interface LaunchOptions {
   config?: string
   json: boolean
   command: string
+  runtime?: RuntimeMode
 }
 
 // Read only the routing options. The selected CLI owns command/option validation,
@@ -32,7 +38,12 @@ export function readLaunchOptions(args: string[]): LaunchOptions {
   for (let index = 0; index < args.length; index++) {
     const arg = args[index] as string
     if (arg === "--") break
-    if (arg === "--cwd" || arg === "--config") {
+    if (arg === "--runtime" || arg.startsWith("--runtime=")) {
+      const value = arg === "--runtime" ? args[++index] : arg.slice("--runtime=".length)
+      if (value !== "global" && value !== "local")
+        throw new LaunchUsageError("--runtime must be global or local")
+      options.runtime = value
+    } else if (arg === "--cwd" || arg === "--config") {
       const value = args[++index]
       if (!value || value.startsWith("-")) throw new LaunchUsageError(`${arg} requires a path`)
       options[arg === "--cwd" ? "cwd" : "config"] = value
@@ -55,12 +66,14 @@ export async function selectLocalRuntime(
 ): Promise<string | undefined> {
   const cwd = resolve(options.cwd ?? process.cwd())
   let root: string
+  let configPath: string
   if (options.command === "init") {
     // A new nested workspace must not inherit its parent's runtime.
     root = options.config ? dirname(resolve(cwd, options.config)) : cwd
+    configPath = options.config ? resolve(cwd, options.config) : join(root, "astrail.yaml")
   } else {
     try {
-      root = (await discoverWorkspaceRoot(cwd, options.config)).root
+      ;({ root, configPath } = await discoverWorkspaceRoot(cwd, options.config))
     } catch (error) {
       if (
         !options.config &&
@@ -73,9 +86,26 @@ export async function selectLocalRuntime(
     }
   }
 
+  if (options.runtime && options.command !== "init") {
+    throw new LaunchUsageError(
+      "--runtime is an init option; set runtime.mode in configuration for existing workspaces",
+    )
+  }
+  const preference = options.runtime
+    ? { mode: options.runtime }
+    : await readRuntimePreference(root, configPath)
+  const packageRoot = join(root, "node_modules", ...ASTRAIL_PACKAGE.split("/"))
+  if (preference.mode === "global") {
+    if (await isWorkspaceRuntime(root, currentEntry)) {
+      throw new Error(
+        "runtime.mode is global, but this is the workspace-local CLI. Run the globally installed astrail command instead of pnpm exec astrail.",
+      )
+    }
+    return undefined
+  }
+
   const manifest = (await readPackage(workspacePackagePath(root))) ?? {}
   const range = astrailDependency(manifest)
-  const packageRoot = join(root, "node_modules", ...ASTRAIL_PACKAGE.split("/"))
   const remediation = () => installRemediation(root, manifest)
   let present = false
   try {
@@ -85,7 +115,12 @@ export async function selectLocalRuntime(
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
   }
   if (!present) {
-    if (range !== undefined) {
+    if (preference.mode === "local" && options.command !== "init" && range === undefined) {
+      throw new Error(
+        `runtime.mode is local, but ${ASTRAIL_PACKAGE} is not installed. Add it to the workspace dependencies and install it in ${root}.`,
+      )
+    }
+    if (range !== undefined && !(options.command === "init" && options.runtime === "local")) {
       throw new Error(
         `Workspace declares ${ASTRAIL_PACKAGE}@${range}, but it is not installed. ${remediation()}`,
       )
@@ -129,6 +164,15 @@ export async function selectLocalRuntime(
     throw new Error(`Recursive Astrail runtime delegation detected. ${remediation()}`)
   }
   return entry
+}
+
+export async function isWorkspaceRuntime(root: string, entry: string): Promise<boolean> {
+  const packageRoot = await realpath(
+    join(root, "node_modules", ...ASTRAIL_PACKAGE.split("/")),
+  ).catch(() => undefined)
+  if (!packageRoot) return false
+  const path = relative(packageRoot, await realpath(entry))
+  return path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path)
 }
 
 export async function runLocalRuntime(entry: string, args: string[]): Promise<number> {

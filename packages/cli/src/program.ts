@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs"
 import { readFile } from "node:fs/promises"
 import { resolve } from "node:path"
+import { fileURLToPath } from "node:url"
 import {
   applyBootstrap,
   applyEnvironmentAddition,
@@ -41,6 +42,7 @@ import {
   type ResolvedContextSource,
   type ResolvedWorkspace,
   type Result,
+  type RuntimeMode,
   resolveCapabilities,
   resolveRepositories,
   resolveWorkspace,
@@ -78,6 +80,7 @@ import {
   type EnvironmentPrompter,
 } from "./environment-prompt.js"
 import { executeWithJournal, renderJournal, renderJournalOperation } from "./journal.js"
+import { isWorkspaceRuntime } from "./local-runtime.js"
 import { CLI_EXIT_CODES, emitResult, type OutputWriter, processWriter, table } from "./output.js"
 import { createTerminalRepositoryPrompter, type RepositoryPrompter } from "./repository-prompt.js"
 import { RuntimeCompatibilityError, requireWorkspaceRuntime } from "./runtime-check.js"
@@ -189,11 +192,18 @@ export function createProgram(
     .description("create or adopt a minimal Codex-targeted Astrail workspace")
     .option("--name <name>", "workspace identifier")
     .option("--force", "replace an existing minimal manifest")
+    .option("--runtime <mode>", "select and persist global or local CLI mode")
     .option("--skip-install", "write workspace files without installing dependencies")
     .option("--dry-run", "preview initialization without writing or installing")
     .action(
       async (
-        options: { name?: string; force?: boolean; skipInstall?: boolean; dryRun?: boolean },
+        options: {
+          name?: string
+          force?: boolean
+          skipInstall?: boolean
+          dryRun?: boolean
+          runtime?: RuntimeMode
+        },
         command: Command,
       ) => {
         await execute("init", command, writer, async (context) => {
@@ -232,6 +242,7 @@ export function createProgram(
         writer,
         async (context) => {
           const base = await workspaceStatus(context)
+          await describeRuntime(base.data)
           const codex = await doctorCodexProjection(base.data)
           const diagnostics = uniqueDiagnostics([...base.diagnostics, ...codex.diagnostics])
           return result({ ...base.data, codex: codex.data }, diagnostics)
@@ -251,6 +262,7 @@ export function createProgram(
         writer,
         async (context) => {
           const base = await doctorWorkspace(context)
+          await describeRuntime(base.data.workspace)
           const codex = await doctorCodexProjection(base.data.workspace)
           const combined = uniqueDiagnostics([...base.diagnostics, ...codex.diagnostics])
           const diagnostics = options.strict ? escalateWarnings(combined) : combined
@@ -1936,8 +1948,18 @@ function normalizeRepositoryMetadata(value: string | undefined): string | undefi
   return normalized || undefined
 }
 
+async function describeRuntime(workspace: ResolvedWorkspace): Promise<void> {
+  const executable = fileURLToPath(new URL("./index.js", import.meta.url))
+  workspace.runtime.executable = executable
+  workspace.runtime.source = (await isWorkspaceRuntime(workspace.root, executable))
+    ? "local"
+    : "launcher"
+}
+
 function renderWorkspaceStatus(workspace: CliWorkspaceStatus): string {
   return [
+    "Runtime",
+    table([workspace.runtime]),
     "Repositories",
     renderRepositories(workspace.topology.repositories),
     "Environments",

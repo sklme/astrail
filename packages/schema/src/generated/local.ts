@@ -47,4 +47,10 @@ export interface AstrailLocalOverlayV1Alpha1 {
   extensions?: {
     [k: string]: unknown;
   };
+  runtime?: {
+    /**
+     * Select the invoking CLI (global) or require the workspace-local CLI (local). Omit to inherit the user preference and legacy selection.
+     */
+    mode: "global" | "local";
+  };
 }

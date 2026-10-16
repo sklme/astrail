@@ -1,5 +1,11 @@
 # astrail-schema
 
+## 0.10.0
+
+### Minor Changes
+
+- Support global and workspace-local CLI modes with workspace-local, shared workspace, and user-level preferences. Global initialization skips local dependencies; the launcher reads preferences before delegating to an installed CLI. Preserve version compatibility checks, report the selected runtime and executable, and copy built-in Skills in global mode so global upgrades cannot break their links.
+
 ## 0.9.1
 
 ### Patch Changes

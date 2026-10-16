@@ -24,6 +24,11 @@ import {
 import { pathExists } from "./fs.js"
 import { inspectRepository } from "./git.js"
 import {
+  type RuntimePreference,
+  readRuntimePreference,
+  userRuntimeConfigPath,
+} from "./runtime-config.js"
+import {
   ASTRAIL_ENGINE_VERSION,
   type AstrailRuntimeCompatibility,
   inspectAstrailRequirement,
@@ -170,8 +175,18 @@ export async function loadWorkspace(
   const { root, configPath } = await discoverWorkspaceRoot(options.cwd, options.config)
   const shared = await parseYamlFile(configPath, validateWorkspaceSchema)
   const diagnostics = [...shared.diagnostics]
+  let preference: RuntimePreference = { mode: "auto" }
+  try {
+    preference = await readRuntimePreference(root, configPath)
+  } catch (error) {
+    diagnostics.push(
+      diagnostic("ASTR1203", "error", error instanceof Error ? error.message : String(error)),
+    )
+  }
   const runtime: AstrailRuntimeCompatibility = {
     version: options.astrailVersion ?? ASTRAIL_ENGINE_VERSION,
+    mode: preference.mode,
+    ...(preference.source ? { modeSource: preference.source } : {}),
     supported: true,
     requirements: [],
   }
@@ -193,6 +208,17 @@ export async function loadWorkspace(
       locations: {},
     },
   ]
+
+  if (preference.source === userRuntimeConfigPath()) {
+    layers.push({
+      id: "user-runtime",
+      kind: "default",
+      order: 500,
+      source: preference.source,
+      value: { runtime: { mode: preference.mode } },
+      locations: {},
+    })
+  }
 
   const lockPath = join(root, "astrail.lock.yaml")
   const lock =

@@ -25,6 +25,7 @@ export function authoredSchemas(effective) {
   config.$id = "https://sklme.github.io/astrail/schema/config/v1alpha1.json"
   config.title = "Astrail Shared Config v1alpha1"
   delete config.required
+  delete config.properties.runtime
   delete config.properties.kind
   config.$defs.metadata = {
     type: "object",

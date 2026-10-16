@@ -84,6 +84,7 @@ describe("Astrail requirements", () => {
     expect(loaded.effective.requires).toBeUndefined()
     expect(loaded.runtime).toEqual({
       version: ASTRAIL_ENGINE_VERSION,
+      mode: "auto",
       supported: true,
       requirements: [],
     })

@@ -11,6 +11,7 @@ import { ASTRAIL_PACKAGE, DEFAULT_PNPM_VERSION } from "./workspace-package.js"
 const roots: string[] = []
 const originalExitCode = process.exitCode
 afterEach(async () => {
+  vi.unstubAllEnvs()
   process.exitCode = originalExitCode
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
 })
@@ -42,6 +43,83 @@ function installer(version = "11.20.0") {
 }
 
 describe("workspace initialization", () => {
+  it("initializes global mode without creating package-manager files or invoking the installer", async () => {
+    const root = await fixture()
+    const runner = installer()
+    const initialized = await initializeWorkspace(
+      { cwd: root, version: CLI_VERSION, runtime: "global" },
+      writer,
+      runner,
+    )
+    expect(initialized.success).toBe(true)
+    expect(initialized.data).toMatchObject({ runtimeMode: "global", installed: false })
+    expect(initialized.data.packagePath).toBeUndefined()
+    expect(parse(await readFile(join(root, "astrail.yaml"), "utf8")).runtime).toEqual({
+      mode: "global",
+    })
+    expect(await pathExists(join(root, "package.json"))).toBe(false)
+    expect(await pathExists(join(root, "node_modules"))).toBe(false)
+    expect(runner).not.toHaveBeenCalled()
+  })
+
+  it("preserves all existing package files in global mode and previews without writes", async () => {
+    const root = await fixture({
+      name: "existing",
+      devDependencies: { [ASTRAIL_PACKAGE]: "~0.3.0" },
+    })
+    const before = await readFile(join(root, "package.json"), "utf8")
+    await writeFile(join(root, "yarn.lock"), "existing lock")
+    await writeFile(join(root, "pnpm-lock.yaml"), "other lock")
+    const runner = installer()
+    const preview = await initializeWorkspace(
+      { cwd: root, version: CLI_VERSION, runtime: "global", dryRun: true },
+      writer,
+      runner,
+    )
+    expect(preview.success).toBe(true)
+    expect(await pathExists(join(root, "astrail.yaml"))).toBe(false)
+    expect(
+      (
+        await initializeWorkspace(
+          { cwd: root, version: CLI_VERSION, runtime: "global" },
+          writer,
+          runner,
+        )
+      ).success,
+    ).toBe(true)
+    expect(await readFile(join(root, "package.json"), "utf8")).toBe(before)
+    expect(await readFile(join(root, "yarn.lock"), "utf8")).toBe("existing lock")
+    expect(await readFile(join(root, "pnpm-lock.yaml"), "utf8")).toBe("other lock")
+    expect(runner).not.toHaveBeenCalled()
+  })
+
+  it("inherits the user default without pinning it and allows explicit local init", async () => {
+    const root = await fixture()
+    const user = join(root, "user.yaml")
+    await writeFile(user, "runtime: { mode: global }\n")
+    vi.stubEnv("ASTRAIL_USER_CONFIG", user)
+    const runner = installer()
+    const initialized = await initializeWorkspace(
+      { cwd: root, version: CLI_VERSION },
+      writer,
+      runner,
+    )
+    expect(initialized.data.runtimeMode).toBe("global")
+    expect(parse(await readFile(join(root, "astrail.yaml"), "utf8")).runtime).toBeUndefined()
+    expect(runner).not.toHaveBeenCalled()
+    const local = await fixture()
+    const pinned = await initializeWorkspace(
+      { cwd: local, version: CLI_VERSION, runtime: "local", skipInstall: true },
+      writer,
+      runner,
+    )
+    expect(pinned.success).toBe(true)
+    expect(parse(await readFile(join(local, "astrail.yaml"), "utf8")).runtime).toEqual({
+      mode: "local",
+    })
+    expect(await pathExists(join(local, "package.json"))).toBe(true)
+  })
+
   it("writes the Pages Schema URL without changing protocol identity", async () => {
     const root = await fixture()
     const initialized = await initializeWorkspace(

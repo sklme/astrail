@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs"
 import { satisfies, valid, validRange } from "semver"
+import type { RuntimePreference } from "./runtime-config.js"
 import { type Diagnostic, diagnostic, type Result, result, type SourceLocation } from "./types.js"
 
 // Core and CLI packages are released in one fixed version group.
@@ -20,12 +21,16 @@ export interface AstrailRequirement {
 
 export interface AstrailRuntimeCompatibility {
   version: string
+  mode?: RuntimePreference["mode"]
+  modeSource?: string
+  source?: "local" | "launcher"
+  executable?: string
   supported: boolean
   requirements: AstrailRequirement[]
 }
 
 export function isRuntimeRequirementDiagnostic(item: Diagnostic): boolean {
-  return item.code === "ASTR1201" || item.code === "ASTR1202"
+  return ["ASTR1201", "ASTR1202", "ASTR1203"].includes(item.code)
 }
 
 export function inspectAstrailRequirement(
@@ -74,7 +79,7 @@ export function inspectAstrailRequirement(
             {
               location,
               details: { version, requiredRange: range, source },
-              remediation: `Use an Astrail version satisfying "${range}". For an existing workspace, update its package.json dependency and lockfile and install it; for initialization, rerun init using pnpm dlx with a compatible astrail version.`,
+              remediation: `Use an Astrail version satisfying "${range}". In global mode, update the global CLI; in local mode, update the workspace dependency and lockfile and install it. Change requires.astrail only after checking compatibility.`,
             },
           ),
         ],

@@ -68,6 +68,12 @@ export interface AstrailWorkspaceV1Alpha1 {
    */
   extends?: ConfigReference[];
   setup?: ConfigSetup;
+  runtime?: {
+    /**
+     * Select the invoking CLI (global) or require the workspace-local CLI (local). Omit to inherit the user preference and legacy selection.
+     */
+    mode: "global" | "local";
+  };
 }
 export interface Metadata {
   name: Identifier;

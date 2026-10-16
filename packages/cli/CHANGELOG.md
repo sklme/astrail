@@ -1,5 +1,19 @@
 # astrail
 
+## 0.10.0
+
+### Minor Changes
+
+- Remove the obsolete workspace import command and its core conversion API. Define workspaces with `astrail init` and explicit Astrail configuration instead. Skill import remains supported.
+- Support global and workspace-local CLI modes with workspace-local, shared workspace, and user-level preferences. Global initialization skips local dependencies; the launcher reads preferences before delegating to an installed CLI. Preserve version compatibility checks, report the selected runtime and executable, and copy built-in Skills in global mode so global upgrades cannot break their links.
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+  - astrail-core@0.10.0
+  - astrail-target-codex@0.10.0
+
 ## 0.9.1
 
 ### Patch Changes
