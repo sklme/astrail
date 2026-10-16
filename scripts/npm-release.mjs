@@ -148,9 +148,13 @@ async function metadata(name) {
   return response.json()
 }
 
-async function verifyPackage(item, version) {
-  for (let attempt = 0; attempt < 10; attempt++) {
-    const current = (await metadata(item.name)).versions[version]
+export async function verifyPackage(item, version, dependencies = {}) {
+  const readMetadata = dependencies.metadata ?? metadata
+  const download = dependencies.fetch ?? fetch
+  const wait = dependencies.pause ?? pause
+  const attempts = dependencies.attempts ?? 60
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const current = (await readMetadata(item.name)).versions[version]
     if (current) {
       assert.equal(
         current.dist.integrity,
@@ -158,12 +162,14 @@ async function verifyPackage(item, version) {
         `Existing package differs: ${item.name}@${version}`,
       )
       assert.equal(new URL(current.dist.tarball).origin, new URL(registry).origin)
-      const response = await fetch(current.dist.tarball, { signal: AbortSignal.timeout(30000) })
-      assert.equal(response.status, 200)
-      assert.equal(hash(Buffer.from(await response.arrayBuffer())), item.integrity)
-      return
+      const response = await download(current.dist.tarball, { signal: AbortSignal.timeout(30000) })
+      if (response.status !== 404) {
+        assert.equal(response.status, 200)
+        assert.equal(hash(Buffer.from(await response.arrayBuffer())), item.integrity)
+        return
+      }
     }
-    await pause(3000)
+    if (attempt + 1 < attempts) await wait(5000)
   }
   throw new Error(`Registry did not expose ${item.name}@${version}; inspect before retrying`)
 }
@@ -285,11 +291,20 @@ async function run(version, directory, operation) {
         )
     }
     for (const item of manifest.packages) {
+      const entry = {
+        name: item.name,
+        integrity: item.integrity,
+        submitted: false,
+        verified: false,
+      }
+      result.packages.push(entry)
       if (operation === "publish" && !(await metadata(item.name)).versions[version]) {
         npm(["publish", join(directory, item.filename), "--access=public", "--tag=candidate"])
+        entry.submitted = true
+        save(resultPath, result)
       }
       await verifyPackage(item, version)
-      result.packages.push({ name: item.name, integrity: item.integrity, verified: true })
+      entry.verified = true
       save(resultPath, result)
     }
     smoke(version)

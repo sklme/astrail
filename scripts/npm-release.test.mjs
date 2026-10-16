@@ -8,6 +8,7 @@ import {
   compareVersions,
   parseVersion,
   promotion,
+  verifyPackage,
 } from "./npm-release.mjs"
 
 test("stable and prerelease promotion cannot roll an existing tag backward", () => {
@@ -80,5 +81,55 @@ test("packed packages reject private identities and unresolved workspace depende
   )
   assert.throws(() =>
     checkManifest({ ...manifest, dependencies: { "astrail-core": "0.9.0" } }, "astrail", "0.9.1"),
+  )
+})
+
+test("publication tolerates delayed indexing and archive propagation without republishing", async () => {
+  const bytes = Buffer.from("published archive")
+  const integrity = `sha512-${createHash("sha512").update(bytes).digest("base64")}`
+  const item = { name: "astrail-schema", integrity }
+  let reads = 0
+  let downloads = 0
+  const waits = []
+  await verifyPackage(item, "0.10.0", {
+    metadata: async () => ({
+      versions:
+        ++reads < 13
+          ? {}
+          : {
+              "0.10.0": {
+                dist: {
+                  integrity,
+                  tarball: "https://registry.npmjs.org/astrail-schema/-/astrail-schema-0.10.0.tgz",
+                },
+              },
+            },
+    }),
+    fetch: async () =>
+      ++downloads === 1 ? { status: 404 } : { status: 200, arrayBuffer: async () => bytes },
+    pause: async (ms) => {
+      waits.push(ms)
+    },
+  })
+  assert.equal(reads, 14)
+  assert.equal(downloads, 2)
+  assert.equal(waits.length, 13)
+  assert(waits.every((ms) => ms === 5000))
+  await assert.rejects(
+    verifyPackage(item, "0.10.0", {
+      metadata: async () => ({ versions: { "0.10.0": { dist: { integrity: "different" } } } }),
+      pause: async () => {
+        assert.fail("A digest conflict must fail immediately")
+      },
+    }),
+    /Existing package differs/,
+  )
+  await assert.rejects(
+    verifyPackage(item, "0.10.0", {
+      metadata: async () => ({ versions: {} }),
+      attempts: 2,
+      pause: async () => {},
+    }),
+    /inspect before retrying/,
   )
 })
