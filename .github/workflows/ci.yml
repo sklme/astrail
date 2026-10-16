@@ -29,3 +29,4 @@ jobs:
       - run: pnpm resources:check
         env:
           ASTRAIL_RESOURCE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+      - run: node --test scripts/npm-release.test.mjs
