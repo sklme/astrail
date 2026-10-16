@@ -17,6 +17,14 @@
       "url": "https://sklme.github.io/astrail/templates/0.10.0/catalog.json",
       "sha256": "4e37f4ce2c964e46371dd2180fff8de11da860632b13b4dd8728152be4ae08b7",
       "cliRange": "~0.10.0"
+    },
+    {
+      "category": "templates",
+      "version": "0.11.0",
+      "path": "templates/0.11.0/catalog.json",
+      "url": "https://sklme.github.io/astrail/templates/0.11.0/catalog.json",
+      "sha256": "4e37f4ce2c964e46371dd2180fff8de11da860632b13b4dd8728152be4ae08b7",
+      "cliRange": "~0.11.0"
     }
   ],
   "templates": []
