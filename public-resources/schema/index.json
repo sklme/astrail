@@ -1,5 +1,46 @@
 {
   "formatVersion": 1,
-  "schemas": [],
-  "current": null
+  "current": null,
+  "schemas": [
+    {
+      "category": "schema",
+      "version": "0.9.1",
+      "kind": "workspace",
+      "protocol": "v1alpha1",
+      "path": "schema/0.9.1/workspace-v1alpha1.json",
+      "url": "https://sklme.github.io/astrail/schema/0.9.1/workspace-v1alpha1.json",
+      "sha256": "12dad9c1763561890280ad7cd010f135f3e10bfd32cad6367a1c13bba47e1996",
+      "cliRange": "~0.9.1"
+    },
+    {
+      "category": "schema",
+      "version": "0.9.1",
+      "kind": "local",
+      "protocol": "v1alpha1",
+      "path": "schema/0.9.1/local-v1alpha1.json",
+      "url": "https://sklme.github.io/astrail/schema/0.9.1/local-v1alpha1.json",
+      "sha256": "d8443205c0f58dc2a525997cfeb41d90912612c1e30444004c30583b031fbc20",
+      "cliRange": "~0.9.1"
+    },
+    {
+      "category": "schema",
+      "version": "0.9.1",
+      "kind": "config",
+      "protocol": "v1alpha1",
+      "path": "schema/0.9.1/config-v1alpha1.json",
+      "url": "https://sklme.github.io/astrail/schema/0.9.1/config-v1alpha1.json",
+      "sha256": "9fbadb564dc8d856d16f7394fc205bd74a461b1cc445f11c690f5f968191bc0d",
+      "cliRange": "~0.9.1"
+    },
+    {
+      "category": "schema",
+      "version": "0.9.1",
+      "kind": "lock",
+      "protocol": "v1alpha1",
+      "path": "schema/0.9.1/lock-v1alpha1.json",
+      "url": "https://sklme.github.io/astrail/schema/0.9.1/lock-v1alpha1.json",
+      "sha256": "2ab4d8c9d7d68c10d046b0e2512e89726df5356985ad065d2f1eded9278b9141",
+      "cliRange": "~0.9.1"
+    }
+  ]
 }

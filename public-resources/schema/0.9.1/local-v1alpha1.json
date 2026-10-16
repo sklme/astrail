@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sklme.github.io/astrail/schema/local/v1alpha1.json",
+  "title": "Astrail Local Overlay v1alpha1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "kind"],
+  "properties": {
+    "$schema": { "type": "string", "format": "uri-reference" },
+    "apiVersion": { "const": "astrail.dev/v1alpha1" },
+    "kind": { "const": "WorkspaceLocal" },
+    "repositories": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "disabled": { "type": "boolean" },
+          "source": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "environments": { "type": "object", "additionalProperties": { "type": "object" } },
+    "targets": { "type": "object", "additionalProperties": { "type": "object" } },
+    "editor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "workspaceFile": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._ -]*\\.code-workspace$",
+          "description": "Root-level .code-workspace filename. When omitted, use metadata.name, then the workspace directory basename if usable, then astrail.code-workspace."
+        },
+        "default": {
+          "enum": ["vscode", "cursor", "codebuddy"],
+          "default": "vscode"
+        },
+        "executables": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "vscode": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000\\r\\n]+$"
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000\\r\\n]+$"
+            },
+            "codebuddy": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000\\r\\n]+$"
+            }
+          }
+        }
+      }
+    },
+    "journal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "maxLines": { "type": "integer", "minimum": 2, "maximum": 100000, "default": 2000 },
+        "maxBytes": { "type": "integer", "minimum": 4096, "maximum": 67108864, "default": 4194304 }
+      }
+    },
+    "extensions": { "type": "object", "additionalProperties": true }
+  }
+}

@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sklme.github.io/astrail/schema/lock/v1alpha1.json",
+  "title": "Astrail Lock v1alpha1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "kind", "workspace", "resolvedAt"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "format": "uri-reference"
+    },
+    "apiVersion": {
+      "const": "astrail.dev/v1alpha1"
+    },
+    "kind": {
+      "const": "WorkspaceLock"
+    },
+    "workspace": {
+      "type": "string",
+      "minLength": 1
+    },
+    "resolvedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "previous": {
+      "type": "object"
+    },
+    "capabilities": {
+      "$ref": "#/$defs/lockedCapabilityEntries"
+    },
+    "configs": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/lockedConfigEntry"
+      }
+    }
+  },
+  "$defs": {
+    "revision": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "branch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tag": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commit": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "minProperties": 1,
+      "maxProperties": 1
+    },
+    "lockedGitCapabilitySource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "url", "revision", "path", "resolvedCommit"],
+      "properties": {
+        "type": {
+          "const": "git"
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "$ref": "#/$defs/revision"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resolvedCommit": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "lockedCapabilityEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "version", "source"],
+      "properties": {
+        "identity": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "source": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/lockedGitCapabilitySource"
+            }
+          ]
+        },
+        "integrity": {
+          "type": "string"
+        }
+      }
+    },
+    "lockedCapabilityEntries": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/lockedCapabilityEntry"
+      }
+    },
+    "lockedConfigEntry": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source", "integrity"],
+          "properties": {
+            "source": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "path"],
+                  "properties": {
+                    "type": {
+                      "const": "local"
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^[^\\u0000\\r\\n]+$"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["type", "url"],
+                  "properties": {
+                    "type": {
+                      "const": "http"
+                    },
+                    "url": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^[^\\u0000\\r\\n]+$"
+                    }
+                  }
+                }
+              ]
+            },
+            "integrity": {
+              "type": "string",
+              "pattern": "^sha256-[A-Za-z0-9+/]{43}=$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source", "integrity", "resolvedCommit"],
+          "properties": {
+            "source": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "url", "path"],
+              "properties": {
+                "type": {
+                  "const": "git"
+                },
+                "url": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[^\\u0000\\r\\n]+$"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[^\\u0000\\r\\n]+$"
+                },
+                "ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[^\\u0000\\r\\n]+$"
+                }
+              }
+            },
+            "integrity": {
+              "type": "string",
+              "pattern": "^sha256-[A-Za-z0-9+/]{43}=$"
+            },
+            "resolvedCommit": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40,64}$"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
