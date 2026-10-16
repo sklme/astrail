@@ -28,8 +28,9 @@ jobs:
     timeout-minutes: 15
     env:
       RELEASE_VERSION: ${{ inputs.version }}
-      RELEASE_DIRECTORY: ${{ runner.temp }}/astrail-release
     steps:
+      - name: Set artifact directory
+        run: printf '%s\n' "RELEASE_DIRECTORY=$RUNNER_TEMP/astrail-release" >> "$GITHUB_ENV"
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
@@ -67,10 +68,12 @@ jobs:
     env:
       RELEASE_VERSION: ${{ inputs.version }}
       RELEASE_OPERATION: ${{ inputs.operation }}
-      RELEASE_DIRECTORY: ${{ runner.temp }}/astrail-release
       NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
-      NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/astrail-empty.npmrc
     steps:
+      - name: Set isolated npm configuration and artifact directory
+        run: |
+          printf '%s\n' "RELEASE_DIRECTORY=$RUNNER_TEMP/astrail-release" >> "$GITHUB_ENV"
+          printf '%s\n' "NPM_CONFIG_USERCONFIG=$RUNNER_TEMP/astrail-empty.npmrc" >> "$GITHUB_ENV"
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
