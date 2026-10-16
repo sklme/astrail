@@ -194,53 +194,6 @@ capabilities:
     )
   })
 
-  it("previews a Market import relative to the selected workspace without modifying it", async () => {
-    const root = await mkdtemp(join(tmpdir(), "astrail-cli-import-"))
-    const source = join(root, "workspace.config.yaml")
-    await writeFile(
-      source,
-      `repositories:
-  contract:
-    path: repositories/contract
-    readonly: true
-  application:
-    path: repositories/application
-    remote: https://example.invalid/application.git
-    branch: feature/example
-`,
-    )
-    const stdout: string[] = []
-    await createProgram({ out: (value) => stdout.push(value), err: () => undefined }).parseAsync(
-      ["--json", "--cwd", root, "import", "market", "--from", "workspace.config.yaml"],
-      { from: "user" },
-    )
-    const envelope = JSON.parse(stdout.join("")) as {
-      success: boolean
-      data: {
-        manifest: {
-          repositories: {
-            contract: { access: string; source: { type: string } }
-            application: {
-              required: boolean
-              source: { type: string; url: string; revision: { branch: string } }
-            }
-          }
-        }
-      }
-    }
-    expect(envelope.success).toBe(true)
-    expect(envelope.data.manifest.repositories.contract.access).toBe("read-only")
-    expect(envelope.data.manifest.repositories.contract.source.type).toBe("local")
-    expect(envelope.data.manifest.repositories.application).toMatchObject({
-      required: true,
-      source: {
-        type: "git",
-        url: "https://example.invalid/application.git",
-        revision: { branch: "feature/example" },
-      },
-    })
-  })
-
   it("lists, shows, and explicitly loads context without routing a task", async () => {
     const root = await mkdtemp(join(tmpdir(), "astrail-cli-context-"))
     await mkdir(join(root, "docs"), { recursive: true })

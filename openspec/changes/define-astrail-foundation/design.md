@@ -1,8 +1,8 @@
 ## Context
 
-The repository currently contains an initialized OpenSpec planning home and generated OpenSpec integrations for Codex, Claude, and CodeBuddy, but no Astrail implementation, product documentation, package structure, or Git history. The Market multi-repository workspace provides the reference practice: a thin control repository, independent child repositories, centralized branch and environment facts, cross-repository OpenSpec, Skill aggregation, bootstrap, status, and doctor scripts.
+The repository currently contains an initialized OpenSpec planning home and generated OpenSpec integrations for Codex, Claude, and CodeBuddy, but no Astrail implementation, product documentation, package structure, or Git history.
 
-That practice proves the value of an agent-oriented workspace, but also exposes design limits that Astrail must address: fixed shell parsing, duplicated branch values in Skills, fixed Skill-link lists, symlink portability, lack of lock state, incomplete worktree support, and rules that are advisory rather than enforceable. See `proposal.md` for product motivation and scope.
+Ad hoc workspace scripts expose design limits that Astrail must address: fixed shell parsing, duplicated branch values in Skills, fixed Skill-link lists, symlink portability, lack of lock state, incomplete worktree support, and rules that are advisory rather than enforceable. See `proposal.md` for product motivation and scope.
 
 ## Goals / Non-Goals
 
@@ -201,7 +201,7 @@ Every artifact written by Astrail is one of:
 - fully generated: Astrail owns the file and records it in the projection manifest;
 - derived link: Astrail owns the link but not its target.
 
-Sync refuses ambiguous ownership and reports a repair action. This avoids the Market workspace problem where fixed scripts and tracked links can silently diverge from the intended capability catalog.
+Sync refuses ambiguous ownership and reports a repair action.
 
 ### 12. Security is based on provenance, trust, and side-effect classification
 
@@ -223,7 +223,6 @@ The alpha manifest cannot contain an arbitrary shell command. Generated context 
 ### Phase 0 — Foundation contract
 
 - Establish Astrail naming, slogan, product boundaries, glossary, schemas, and conformance scenarios.
-- Capture the Market workspace as a reference case without importing company-specific values.
 - Decide repository licensing and package publication names before the first public release.
 
 ### Phase 1 — `0.1` Codex-first foundation
@@ -233,7 +232,7 @@ The alpha manifest cannot contain an arbitrary shell command. Generated context 
 - Resolve repository, environment, context, and capability graphs with provenance.
 - Implement `validate`, `status`, `doctor`, repository/environment inspection, context explanation, and capability listing with human and JSON output.
 - Implement the Codex target for managed instructions and Skill projections.
-- Provide `astrail init`, example workspaces, schema fixtures, and a Market-derived compatibility fixture.
+- Provide `astrail init`, example workspaces, and schema fixtures.
 - Implement non-destructive repository bootstrap and local-path onboarding.
 - Generate and consume `astrail.lock.yaml` for Distribution and capability versions and integrity.
 - Implement idempotent sync, dry-run update, rollback to prior lock state, and generated-artifact drift repair.
@@ -275,14 +274,6 @@ Success criterion: teams can discover, govern, and visualize reusable Workspace 
 - [Codex-specific choices leak into the core] → Isolate target settings under namespaced extensions and generated artifacts; add a second target only after the portable model is proven.
 - [Symlinks are not portable] → Treat link, copy, and manifest-based projection as target strategies and diagnose platform support rather than making symlinks the core model.
 - [Workspace definitions expose secrets or internal topology] → Use secret references, sensitivity metadata, sanitized diagnostics, and publishable/local overlays.
-
-## Migration Plan
-
-1. Use the current Market workspace as a read-only fixture and map its repositories, environments, context, Skills, and scripts into the alpha Astrail model.
-2. Compare Astrail `status` and `doctor` output with the existing scripts until the new resolver covers the proven behavior.
-3. Render Codex artifacts into an isolated fixture and verify Skill discovery and AGENTS ownership without changing the live Market workspace.
-4. Add an import or guided migration command only after the mapping is stable; generate a preview and never delete the original scripts or configuration.
-5. Allow the existing workspace and Astrail to run side by side during adoption. Rollback consists of removing Astrail-generated projections and returning to the existing control scripts.
 
 ## Decisions closed during implementation
 

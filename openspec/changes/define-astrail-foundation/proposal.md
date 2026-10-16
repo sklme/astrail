@@ -35,5 +35,5 @@ None. This repository does not yet contain main specifications.
 - Introduces the initial public product contract, terminology, file conventions, diagnostics, and CLI behavior for Astrail.
 - Establishes `astrail` as the future CLI and `astrail.yaml`, `astrail.local.yaml`, and `astrail.lock.yaml` as the configuration family.
 - Requires a future core library, schema package, CLI, Codex projection, reference Workspace Distribution, and conformance fixtures.
-- Uses the existing multi-repository Market workspace as a design input and future compatibility fixture, but keeps all company-specific repositories, environments, Skills, and services outside the open-source core.
+- Keeps company-specific repositories, environments, Skills, and services outside the portable core.
 - Defers application code, UI, arbitrary executable Plugin SDK, company-specific providers, central registries, and non-Codex adapters to later implementation phases or changes.

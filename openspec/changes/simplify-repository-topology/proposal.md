@@ -11,7 +11,7 @@ The alpha repository contract combines `path`, `remote`, checkout strategy, pres
 - Resolve subpath sources beneath a declared parent repository without a second clone, validate their paths and dependency graph, and inherit Git observations from the parent while scoping dirty state to the child path.
 - **BREAKING** Replace `access: writable` with the explicit advisory values `read-only` and `read-write`; a child may narrow but never widen its parent's access.
 - Retain optional repository role, description, exports, and instruction trust metadata.
-- Migrate examples, fixtures, import preview output, generated types, CLI output, tests, and documentation to the new contract.
+- Migrate examples, fixtures, generated types, CLI output, tests, and documentation to the new contract.
 - Non-goals: enforcing filesystem or Git-server permissions, managing Git submodules as subpaths, automatically pulling existing repositories, or deleting repository content.
 
 ## Capabilities
@@ -27,6 +27,6 @@ None. The prior foundation change has not been archived into main specs, so this
 ## Impact
 
 - Public `astrail.dev/v1alpha1` Workspace and Local Overlay schemas and generated TypeScript types.
-- Core manifest validation, repository resolution, Git observation, diagnostics, bootstrap planning/application, Market import preview, and resolved result types.
+- Core manifest validation, repository resolution, Git observation, diagnostics, bootstrap planning/application, and resolved result types.
 - CLI repository/status JSON and tables, Codex projections, examples, fixtures, public documentation, and OpenSpec foundation language.
 - Existing alpha manifests using the old repository fields require an explicit migration; no silent compatibility translation is introduced.

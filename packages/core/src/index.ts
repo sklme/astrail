@@ -8,7 +8,6 @@ export * from "./environment-authoring.js"
 export * from "./environment-checkout.js"
 export * from "./fs.js"
 export * from "./git.js"
-export * from "./import-market.js"
 export * from "./journal.js"
 export type { JournalChange, JournalTargets, JournalValues } from "./journal-trace.js"
 export {

@@ -95,13 +95,10 @@
 - [x] 10.6 Implement update preview, compatible dependency selection, projection-change review, and prior-lock restoration.
 - [x] 10.7 Add repeat-run and failure-recovery tests proving that existing repositories, worktrees, local modifications, and user-authored instructions are preserved.
 
-## 11. Reference Workspaces and Migration
+## 11. Reference Workspaces and Adoption
 
 - [x] 11.1 Create a minimal public example with managed Git, linked local, monorepo subpath, required/optional, and read-only/read-write repository combinations.
-- [x] 11.2 Create a sanitized Market-derived fixture covering branch roles, independent environments, external repositories, context routing, cross-repository Skills, and doctor warnings.
-- [x] 11.3 Compare Astrail status and diagnostics with the existing Market workspace scripts and document intentional differences.
-- [x] 11.4 Build an import preview that maps the Market-style configuration into Astrail declarations without modifying the source workspace.
-- [x] 11.5 Document side-by-side adoption and rollback by removing generated projections while preserving original workspace scripts and repositories.
+- [x] 11.2 Document side-by-side adoption and rollback by removing generated projections while preserving original workspace scripts and repositories.
 
 ## 12. Documentation, Security, and Release Verification
 

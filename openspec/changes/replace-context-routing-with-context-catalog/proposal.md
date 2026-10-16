@@ -26,5 +26,5 @@ None. The earlier context-routing contract has not been archived into the main s
 
 - Removes public schema fields, exported Core routing types/functions, and two CLI subcommands during the `v1alpha1` stage.
 - Adds explicit context inspection and loading commands backed by the existing Core catalog and content loader.
-- Changes example manifests and Market migration expectations but does not alter repository, capability, lifecycle, or projection ownership semantics.
+- Changes example manifests but does not alter repository, capability, lifecycle, or projection ownership semantics.
 - Leaves Agent reasoning responsible for deciding which discovered context is relevant to a task.

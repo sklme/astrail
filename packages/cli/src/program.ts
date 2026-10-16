@@ -35,7 +35,6 @@ import {
   planSkillAddition,
   planSkillImport,
   planUpdate,
-  previewMarketImport,
   type RepositoryAdditionApplyData,
   type RepositoryAdditionPlan,
   type RepositorySkillInventory,
@@ -279,7 +278,6 @@ export function createProgram(
   addCapabilityCommands(program, writer)
   addProjectionCommands(program, writer)
   addLifecycleCommands(program, writer)
-  addImportCommands(program, writer)
   addJournalCommands(program, writer)
   return program
 }
@@ -1788,24 +1786,6 @@ function renderBootstrap(data: CliBootstrapData): string {
     )
   if (data.editorWorkspace) sections.push(renderEditorWorkspace(data.editorWorkspace))
   return sections.join("\n\n")
-}
-
-function addImportCommands(program: Command, writer: OutputWriter): void {
-  const importer = program
-    .command("import")
-    .description("preview migrations from existing workspace formats")
-  importer
-    .command("market")
-    .requiredOption("--from <path>", "Market-style workspace configuration")
-    .action(async (options: { from: string }, command: Command) => {
-      await execute(
-        "import market",
-        command,
-        writer,
-        (context) => previewMarketImport(resolve(context.cwd ?? process.cwd(), options.from)),
-        (preview) => preview.yaml,
-      )
-    })
 }
 
 function addJournalCommands(program: Command, writer: OutputWriter): void {
