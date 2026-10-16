@@ -12,7 +12,7 @@
 ## 3. Lifecycle and Migration
 
 - [x] 3.1 Update bootstrap planning/application to clone only missing Git sources into `repos/<id>` with revision selection and never materialize local or subpath sources; verify lifecycle tests cover preview, authorization, idempotence, and parent-child availability.
-- [x] 3.2 Update Market import preview and bundled fixtures to emit the new source/access/required contract; verify import and conformance tests pass.
+- [x] 3.2 Update bundled fixtures to use the new source/access/required contract; verify conformance tests pass.
 
 ## 4. Documentation and Validation
 
