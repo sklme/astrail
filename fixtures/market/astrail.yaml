@@ -1,0 +1,60 @@
+apiVersion: astrail.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: market-derived
+repositories:
+  market:
+    access: read-write
+    role: application
+    source:
+      type: git
+      url: https://example.invalid/market.git
+      revision:
+        branch: feature/example
+  contract:
+    access: read-only
+    role: contract
+    source:
+      type: git
+      url: https://example.invalid/contract.git
+    trust:
+      instructions: disabled
+  optional-tools:
+    required: false
+    access: read-write
+    source:
+      type: local
+      path: repositories/tools
+environments:
+  test:
+    provider: static
+    resources:
+      endpoint: https://test.example.invalid
+  experience:
+    provider: static
+    resources:
+      endpoint: https://experience.example.invalid
+contexts:
+  cross-repository-contract:
+    kind: file
+    path: context/contract.md
+    summary: Cross-repository contract reference
+    scope: contracts
+    priority: 100
+    trust: content-only
+capabilities:
+  log-analysis:
+    kind: skill
+    identity: example/loghelper
+    version: 2.1.0
+    exposeAs: loghelper
+    source:
+      type: repository
+      repository: optional-tools
+      path: skills/loghelper
+    trust:
+      instructions: trusted
+targets:
+  codex:
+    type: codex
+    primary: true

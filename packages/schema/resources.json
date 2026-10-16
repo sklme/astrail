@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "schemas": [
+    {
+      "kind": "workspace",
+      "protocol": "v1alpha1",
+      "export": "./workspace-v1alpha1.json"
+    },
+    {
+      "kind": "local",
+      "protocol": "v1alpha1",
+      "export": "./local-v1alpha1.json"
+    },
+    {
+      "kind": "config",
+      "protocol": "v1alpha1",
+      "export": "./config-v1alpha1.json"
+    },
+    {
+      "kind": "lock",
+      "protocol": "v1alpha1",
+      "export": "./lock-v1alpha1.json"
+    }
+  ]
+}

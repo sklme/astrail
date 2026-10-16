@@ -1,0 +1,16 @@
+apiVersion: astrail.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: unsafe-git-capability
+capabilities:
+  escape:
+    kind: skill
+    identity: example/escape
+    source:
+      type: git
+      url: https://example.invalid/team-skills.git
+      revision:
+        tag: v1.0.0
+      path: ../escape
+    trust:
+      instructions: trusted

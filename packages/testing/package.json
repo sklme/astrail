@@ -1,0 +1,35 @@
+{
+  "name": "astrail-testing",
+  "version": "0.9.1",
+  "private": true,
+  "description": "Private Astrail conformance and fixture helpers",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sklme/astrail.git",
+    "directory": "packages/testing"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest run --root ../.. packages/testing"
+  },
+  "dependencies": {
+    "astrail-core": "workspace:*",
+    "astrail-target-codex": "workspace:*"
+  },
+  "homepage": "https://github.com/sklme/astrail#readme",
+  "bugs": {
+    "url": "https://github.com/sklme/astrail/issues"
+  }
+}

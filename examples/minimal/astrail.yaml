@@ -1,0 +1,71 @@
+$schema: https://sklme.github.io/astrail/schema/workspace/v1alpha1.json
+apiVersion: astrail.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: astrail-example
+  displayName: Astrail multi-repository example
+extends:
+  - ../configs/backend/astrail.config.yaml
+repositories:
+  application:
+    access: read-write
+    role: application
+    source:
+      type: git
+      url: https://example.invalid/application.git
+  application-api:
+    access: read-only
+    role: contract
+    source:
+      type: subpath
+      repository: application
+      path: packages/api
+  contracts:
+    access: read-only
+    role: contract
+    source:
+      type: git
+      url: https://example.invalid/contracts.git
+  optional-docs:
+    required: false
+    access: read-write
+    role: documentation
+    source:
+      type: local
+      path: repositories/docs
+environments:
+  development:
+    provider: static
+    resources:
+      apiBase: https://development.example.invalid
+  experience:
+    provider: static
+    resources:
+      apiBase: https://experience.example.invalid
+contexts:
+  workspace-guide:
+    kind: file
+    path: context/workspace.md
+    summary: Public example workspace guidance
+    priority: 100
+    trust: trusted
+  contract-guide:
+    kind: file
+    path: context/contracts.md
+    summary: Contract reference for agents to inspect when relevant
+    scope: contracts
+    priority: 80
+    trust: content-only
+capabilities:
+  example-skill:
+    kind: skill
+    identity: community/example-skill
+    version: 0.1.0
+    exposeAs: example-skill
+    source:
+      type: workspace
+      path: skills/example-skill
+targets:
+  codex:
+    type: codex
+    primary: true

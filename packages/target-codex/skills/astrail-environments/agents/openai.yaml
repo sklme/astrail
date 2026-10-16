@@ -1,0 +1,4 @@
+interface:
+  display_name: "Astrail Environments"
+  short_description: "Manage environment branches per repository"
+  default_prompt: "Use $astrail-environments to add or inspect an environment with shared or per-repository branch targets."

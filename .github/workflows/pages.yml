@@ -6,6 +6,7 @@ on:
     paths:
       - public-resources/**
       - .github/workflows/pages.yml
+      - scripts/check-public-resources.mjs
   workflow_dispatch:
 
 permissions:
@@ -19,20 +20,16 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Validate resource catalogs
-        run: |
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          root = Path('public-resources')
-          assert (root / 'index.html').is_file()
-          for name, keys in [('schema', ['schemas']), ('templates', ['packages', 'templates']), ('configs', ['configs'])]:
-              data = json.loads((root / name / 'index.json').read_text())
-              assert data['formatVersion'] == 1
-              for key in keys:
-                  assert isinstance(data[key], list), (name, key)
-          PY
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+      - name: Validate immutable resources and stable entries
+        run: node scripts/check-public-resources.mjs
+        env:
+          ASTRAIL_RESOURCE_BASE: ${{ github.event.before }}
       - uses: actions/upload-pages-artifact@v4
         with:
           path: public-resources

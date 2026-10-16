@@ -1,0 +1,18 @@
+apiVersion: astrail.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: git-capability
+capabilities:
+  loghelper:
+    kind: skill
+    identity: example/loghelper
+    version: 1.2.0
+    exposeAs: loghelper
+    source:
+      type: git
+      url: https://example.invalid/team-skills.git
+      revision:
+        tag: v1.2.0
+      path: skills/loghelper
+    trust:
+      instructions: trusted

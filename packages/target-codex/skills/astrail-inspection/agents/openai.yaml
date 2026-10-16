@@ -1,0 +1,4 @@
+interface:
+  display_name: "Astrail Inspection"
+  short_description: "Inspect workspace health and recent operation history"
+  default_prompt: "Use $astrail-inspection to inspect this Astrail workspace, using recent operation history when relevant."

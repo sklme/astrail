@@ -1,0 +1,44 @@
+{
+  "name": "astrail-target-codex",
+  "version": "0.9.1",
+  "description": "Codex projection target for Astrail",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sklme/astrail.git",
+    "directory": "packages/target-codex"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.test.*",
+    "!dist/.tsbuildinfo",
+    "skills",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest run --root ../.. packages/target-codex"
+  },
+  "dependencies": {
+    "astrail-core": "workspace:*"
+  },
+  "homepage": "https://github.com/sklme/astrail#readme",
+  "bugs": {
+    "url": "https://github.com/sklme/astrail/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

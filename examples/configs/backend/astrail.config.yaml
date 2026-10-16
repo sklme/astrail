@@ -1,0 +1,24 @@
+$schema: https://sklme.github.io/astrail/schema/config/v1alpha1.json
+metadata:
+  name: community/backend
+  version: 0.1.0
+  description: Generic backend workspace defaults without company-specific resources
+contexts:
+  backend-practices:
+    kind: file
+    path: context/backend.md
+    summary: Generic backend development practices
+    priority: 20
+    trust: content-only
+capabilities:
+  backend-context:
+    kind: context-pack
+    identity: community/backend-context
+    version: 0.1.0
+    source:
+      type: config
+      path: context/backend.md
+    dependencies:
+      - identity: community/log-diagnostics
+        version: ^1.0.0
+        mode: recommended

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Astrail Skills"
+  short_description: "Add Skill Capabilities through reviewed plans"
+  default_prompt: "Use $astrail-skills to add a Skill Capability to this Astrail workspace."

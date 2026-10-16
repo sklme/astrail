@@ -1,0 +1,16 @@
+apiVersion: astrail.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: repository-dimensions
+repositories:
+  canonical:
+    access: read-only
+    source:
+      type: local
+      path: repositories/canonical
+  optional-editor:
+    required: false
+    access: read-write
+    source:
+      type: local
+      path: repositories/optional-editor

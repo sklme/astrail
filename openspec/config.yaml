@@ -1,0 +1,57 @@
+schema: spec-driven
+
+context: |
+  Astrail is an Apache-2.0 open-source advisory control-plane engine for agent-oriented workspaces.
+  The implementation is a pnpm monorepo using Node.js 22.12+, native ESM, strict TypeScript, Commander.js, JSON Schema 2020-12, Ajv, YAML, Vitest, and Biome.
+  Keep portable core behavior independent of company infrastructure and agent vendors. Codex is the first target, not a chat proxy.
+  Preserve user repositories and files; all mutations must be previewable, attributable, and non-destructive.
+
+rules:
+  proposal:
+    - State user-visible scope and non-goals explicitly.
+    - Separate portable core behavior from company-specific extensions.
+  design:
+    - Record trust boundaries, provenance, file ownership, and compatibility consequences.
+    - Keep Commander.js and target-specific behavior outside the core package.
+  specs:
+    - Include deterministic scenarios for human and machine-readable behavior.
+    - Describe advisory policy as warnings rather than enforcement.
+  tasks:
+    - Include tests and documentation for every public behavior group.
+
+operations:
+  apply:
+    guidance:
+      - Run focused tests after each package group and the full check before completion.
+      - Mark tasks complete only after their implementation and verification exist.
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Example:
+#   context: |
+#     Tech stack: TypeScript, React, Node.js
+#     We use conventional commits
+#     Domain: e-commerce platform
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing

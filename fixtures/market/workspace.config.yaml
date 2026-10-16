@@ -1,0 +1,22 @@
+name: market-example
+repositories:
+  market:
+    path: repositories/market
+    remote: https://example.invalid/market.git
+    branch: feature/example
+  contract:
+    path: repositories/contract
+    remote: https://example.invalid/contract.git
+    readonly: true
+  optional-tools:
+    path: repositories/tools
+    optional: true
+environments:
+  test:
+    provider: static
+    resources:
+      endpoint: https://test.example.invalid
+  experience:
+    provider: static
+    resources:
+      endpoint: https://experience.example.invalid

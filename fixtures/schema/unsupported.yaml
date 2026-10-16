@@ -1,0 +1,4 @@
+apiVersion: astrail.dev/v9
+kind: Workspace
+metadata:
+  name: unsupported

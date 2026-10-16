@@ -1,0 +1,4 @@
+interface:
+  display_name: "Astrail Repositories"
+  short_description: "Add workspace repositories through reviewed plans"
+  default_prompt: "Use $astrail-repositories to add a repository to this Astrail workspace."

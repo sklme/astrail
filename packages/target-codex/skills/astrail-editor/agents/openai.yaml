@@ -1,0 +1,4 @@
+interface:
+  display_name: "Astrail Editor"
+  short_description: "Open all repositories in your preferred editor"
+  default_prompt: "Use $astrail-editor to open all repositories in my preferred editor."

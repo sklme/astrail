@@ -1,0 +1,22 @@
+$schema: https://sklme.github.io/astrail/schema/config/v1alpha1.json
+metadata:
+  name: example/log-analysis
+  version: 1.0.0
+requires:
+  astrail: '>=0.8.0 <0.9.0'
+setup:
+  mode: skill
+  skill: example/log-setup
+capabilities:
+  log-setup:
+    kind: skill
+    identity: example/log-setup
+    exposeAs: log-setup
+    source:
+      type: git
+      url: https://example.invalid/team/log-skills.git
+      revision:
+        tag: v1.0.0
+      path: skills/log-setup
+    trust:
+      instructions: trusted

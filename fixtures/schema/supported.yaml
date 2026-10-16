@@ -1,0 +1,7 @@
+apiVersion: astrail.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: supported
+extensions:
+  example.vendor:
+    opaque: preserved
