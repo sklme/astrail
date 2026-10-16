@@ -1,6 +1,6 @@
 {
   "formatVersion": 1,
-  "current": "0.9.1",
+  "current": "0.10.0",
   "schemas": [
     {
       "category": "schema",

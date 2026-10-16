@@ -101,6 +101,17 @@
     },
     "setup": {
       "$ref": "#/$defs/configSetup"
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": {
+          "enum": ["global", "local"],
+          "description": "Select the invoking CLI (global) or require the workspace-local CLI (local). Omit to inherit the user preference and legacy selection."
+        }
+      }
     }
   },
   "$defs": {
