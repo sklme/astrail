@@ -9,7 +9,7 @@ Astrail organizes repositories, environments, shared configuration, context, and
 Node.js 22.12+ and Git are required. A global CLI is convenient when you maintain several workspaces:
 
 ```sh
-npm install -g astrail@0.10.0
+npm install -g astrail@0.11.0
 astrail --cwd ./my-workspace init --name my-workspace --runtime global
 cd my-workspace
 astrail --json status
@@ -54,6 +54,10 @@ After switching and syncing, optionally remove only the obsolete CLI dependency 
 See [the minimal workspace](examples/minimal/astrail.yaml) and [shared configuration examples](examples/configs). Repository URLs in examples are placeholders; replace them with your own. Examples containing adjacent files should be consumed as a directory or pinned Git source, rather than as a standalone HTTP file.
 
 [Public resources](https://sklme.github.io/astrail/) provide [Schema](https://sklme.github.io/astrail/schema/index.json), [template](https://sklme.github.io/astrail/templates/index.json), and [shared configuration](https://sklme.github.io/astrail/configs/index.json) indexes. Template and shared configuration catalogs are currently empty. Schema validation runs locally from the installed package. The `astrail.dev/v1alpha1` configuration protocol is versioned independently from npm packages.
+
+## Documentation and task records
+
+Version 0.11.0 removes the bundled `astrail-records` Skill and its default documentation rules. Documentation workflows can be selected through existing shared configuration. Existing docs, task records, and user-authored guidance are preserved. After upgrading, review `astrail sync --dry-run` before applying; locally modified legacy Skill entries are preserved with an `ASTR5030` diagnostic until reconciled.
 
 ## Packages
 

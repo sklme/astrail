@@ -1,5 +1,17 @@
 # astrail-target-codex
 
+## 0.11.0
+
+### Minor Changes
+
+- Move documentation and task-record management out of the default Codex projection. Remove the bundled `astrail-records` Skill and its default `docs/` and `records/` guidance; users can opt into an independently maintained Skill through shared configuration.
+
+  On synchronization, retire the recorded legacy Skill entry while preserving business documents and user-authored guidance. Refuse removal of modified copies or replaced links, including changes made after preview. No new guidance fields or automatic workflow hooks are introduced.
+
+### Patch Changes
+
+- astrail-core@0.11.0
+
 ## 0.10.0
 
 ### Minor Changes

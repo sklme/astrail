@@ -1,4 +1,0 @@
-interface:
-  display_name: "Astrail Records"
-  short_description: "Organize task records and reusable workspace knowledge"
-  default_prompt: "Use $astrail-records to save this task in its owning repository and update any reusable documentation."

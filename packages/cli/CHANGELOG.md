@@ -1,5 +1,13 @@
 # astrail
 
+## 0.11.0
+
+### Patch Changes
+
+- Updated dependencies
+  - astrail-target-codex@0.11.0
+  - astrail-core@0.11.0
+
 ## 0.10.0
 
 ### Minor Changes

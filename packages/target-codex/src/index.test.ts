@@ -7,7 +7,6 @@ import {
   ASTRAIL_EDITOR_SKILL,
   ASTRAIL_ENVIRONMENTS_SKILL,
   ASTRAIL_INSPECTION_SKILL,
-  ASTRAIL_RECORDS_SKILL,
   ASTRAIL_REPOSITORIES_SKILL,
   ASTRAIL_SKILLS_SKILL,
   doctorCodexProjection,
@@ -202,7 +201,6 @@ capabilities:
       "derived-link",
       "derived-link",
       "derived-link",
-      "derived-link",
     ])
     expect(await pathExists(join(root, "records"))).toBe(false)
     expect(await pathExists(join(root, "docs"))).toBe(false)
@@ -214,60 +212,6 @@ capabilities:
     const broken = await doctorCodexProjection(workspace)
     expect(broken.diagnostics.some((item) => item.code === "ASTR5023")).toBe(true)
   })
-
-  it.each(["link", "copy", "manifest"] as const)(
-    "projects the records Skill with %s while preserving user records, docs, and guidance",
-    async (strategy) => {
-      const root = await mkdtemp(join(tmpdir(), "astrail-codex-records-"))
-      try {
-        await writeFile(
-          join(root, "astrail.yaml"),
-          `apiVersion: astrail.dev/v1alpha1\nkind: Workspace\nmetadata: { name: records }\npolicies: { projectionStrategy: ${strategy} }\n`,
-        )
-        const userFiles = {
-          "docs/architecture.md": "# Maintained architecture\n",
-          "records/2026-10-12-investigation/README.md": "# Investigation\nStatus: in progress\n",
-          "records/2026-10-12-investigation/evidence/result.json": '{"verified":true}\n',
-        }
-        for (const [path, content] of Object.entries(userFiles)) {
-          await mkdir(join(root, path, ".."), { recursive: true })
-          await writeFile(join(root, path), content)
-        }
-        const customGuidance = "# Project conventions\nKeep task records in cases/.\n"
-        await writeFile(join(root, "AGENTS.md"), customGuidance)
-        const workspace = await resolveWorkspace({ cwd: root })
-        const plan = await planCodexProjection(workspace)
-        const artifact = plan.artifacts.find(
-          (item) => item.identity === "astrail/builtin-task-records",
-        )
-        expect(artifact).toMatchObject({
-          path: `.agents/skills/${ASTRAIL_RECORDS_SKILL}`,
-          ownership: strategy === "manifest" ? "manifest-entry" : `derived-${strategy}`,
-        })
-        expect((await syncCodexProjection(plan)).success).toBe(true)
-        const agents = await readFile(join(root, "AGENTS.md"), "utf8")
-        expect(agents.startsWith(customGuidance)).toBe(true)
-        expect(agents).toContain(`$${ASTRAIL_RECORDS_SKILL}`)
-        const projected = join(root, ".agents", "skills", ASTRAIL_RECORDS_SKILL)
-        if (strategy === "manifest") {
-          expect(await pathExists(projected)).toBe(false)
-        } else {
-          for (const file of ["SKILL.md", "agents/openai.yaml"]) {
-            expect(await readFile(join(projected, file), "utf8")).toBe(
-              await readFile(new URL(`../skills/astrail-records/${file}`, import.meta.url), "utf8"),
-            )
-          }
-        }
-        for (const [path, content] of Object.entries(userFiles)) {
-          expect(await readFile(join(root, path), "utf8")).toBe(content)
-        }
-        expect((await doctorCodexProjection(workspace)).data.current).toBe(true)
-        expect((await planCodexProjection(workspace)).changes).toEqual([])
-      } finally {
-        await rm(root, { recursive: true, force: true })
-      }
-    },
-  )
 
   it("renders single-line repository responsibility cards without marker injection", async () => {
     const root = await mkdtemp(join(tmpdir(), "astrail-codex-repositories-"))

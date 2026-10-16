@@ -237,11 +237,26 @@ function smoke(version) {
     if (args[0] === "status") {
       assert.equal(result.data.runtime.version, version)
       assert.equal(result.data.codex.current, true)
-      assert.equal(
-        result.data.codex.artifacts.filter((item) => item.path.startsWith(".agents/skills/"))
-          .length,
-        6,
+      const expectedSkills = [
+        "astrail-editor",
+        "astrail-environments",
+        "astrail-inspection",
+        "astrail-repositories",
+        "astrail-skills",
+      ]
+      if (compareVersions(version, "0.11.0") < 0) expectedSkills.push("astrail-records")
+      assert.deepEqual(
+        result.data.codex.artifacts
+          .filter((item) => item.path.startsWith(".agents/skills/"))
+          .map((item) => item.path.slice(".agents/skills/".length))
+          .sort(),
+        expectedSkills.sort(),
       )
+      if (compareVersions(version, "0.11.0") >= 0) {
+        const guidance = readFileSync(join(workspace, "AGENTS.md"), "utf8")
+        assert(!guidance.includes("$astrail-records"))
+        assert(!guidance.includes("Task records and durable knowledge"))
+      }
     }
   }
   assert(existsSync(join(workspace, "public-release-smoke.code-workspace")))
