@@ -18,6 +18,12 @@ Development changes are integrated into the maintained development source and th
 
 All six workspace packages share a version; the root and `astrail-testing` remain private. Publishable packages use npm's public registry. Validate actual package archives and install them in an isolated workspace before publishing. Publish new versions with a candidate tag, verify registry installations and resources, then advance stable tags. Prereleases and older-version retries must not roll stable entries backward. Never replace a published version or move a published tag.
 
+Use **Publish npm packages** (`npm-publish.yml`) on `main`, with the exact synchronized `version` and `operation=publish`. Deploy the version's fixed resources before starting it. The workflow builds and checks the source, inspects all five archives, publishes missing versions in dependency order, verifies registry downloads and a fresh installation, then advances `latest` (stable) or `next` (prerelease) without moving a tag backward. Existing versions are accepted only when their archive digests match. Inspect the run artifacts before resuming a failed release.
+
+Publishing uses npm Trusted Publishing through the `npm-publish` GitHub Environment, restricted to `main`. Each of the five packages must authorize `sklme/astrail`, workflow `npm-publish.yml`, environment `npm-publish`, with direct publish and dist-tag permissions. No stored npm token is used. Repository maintainers explicitly dispatch a release; pushes and pull requests do not publish packages.
+
+The `verify` operation uses an already-published version. It checks archives and installation, then creates and removes a run-specific `oidc-check-*` tag on each package to exercise authenticated writes without republishing a version or changing stable tags. If a run is interrupted, inspect and remove only its temporary verification tags. This verifies OIDC tag access; the first publication of a new version also verifies publish access and provenance. After npm succeeds, promote the verified resource aliases and create the version's GitHub Release as part of the synchronization task.
+
 ## Resource maintenance
 
 `public-resources/` contains the static files uploaded by `.github/workflows/pages.yml`. Validate them with `corepack pnpm resources:check`. The workflow deploys changes on `main` and supports manual deployment.

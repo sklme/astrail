@@ -1,0 +1,100 @@
+name: Publish npm packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact version already synchronized to main
+        required: true
+        type: string
+      operation:
+        description: Publish a release or verify OIDC using an existing release
+        required: true
+        default: verify
+        type: choice
+        options: [verify, publish]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.repository == 'sklme/astrail' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - name: Set artifact directory
+        run: printf '%s\n' "RELEASE_DIRECTORY=$RUNNER_TEMP/astrail-release" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: node --test scripts/npm-release.test.mjs
+      - run: pnpm resources:check
+        env:
+          ASTRAIL_RESOURCE_BASE: HEAD^
+      - name: Pack and inspect the five public packages
+        run: node scripts/npm-release.mjs prepare
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.RELEASE_DIRECTORY }}
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_OPERATION: ${{ inputs.operation }}
+      NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+    steps:
+      - name: Set isolated npm configuration and artifact directory
+        run: |
+          printf '%s\n' "RELEASE_DIRECTORY=$RUNNER_TEMP/astrail-release" >> "$GITHUB_ENV"
+          printf '%s\n' "NPM_CONFIG_USERCONFIG=$RUNNER_TEMP/astrail-empty.npmrc" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install the OIDC-capable npm CLI
+        run: |
+          touch "$NPM_CONFIG_USERCONFIG"
+          npm install --global npm@11.21.0 --ignore-scripts
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.RELEASE_DIRECTORY }}
+      - name: Publish, install from npm, and promote verified versions
+        run: node scripts/npm-release.mjs run
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: npm-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.RELEASE_DIRECTORY }}/result.json
+          if-no-files-found: warn
+          retention-days: 90
