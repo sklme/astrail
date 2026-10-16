@@ -74,20 +74,47 @@ export function checkManifest(manifest, name, version) {
   }
 }
 
-function prepare(version, directory) {
+export function checkPublishedArtifact(manifest, bytes, name, version) {
+  checkManifest(manifest, name, version)
+  assert.equal(new URL(manifest.dist.tarball).origin, new URL(registry).origin)
+  assert.equal(hash(bytes), manifest.dist.integrity, `Registry archive differs: ${name}`)
+}
+
+export function checkArtifactSource(manifest, operation) {
+  assert(["verify", "publish"].includes(operation))
+  assert.equal(manifest.artifactSource, operation === "verify" ? "registry" : "build")
+}
+
+async function prepare(version, directory, operation) {
   parseVersion(version)
+  assert(["verify", "publish"].includes(operation))
   mkdirSync(directory, { recursive: true })
   const release = {
     version,
+    artifactSource: operation === "verify" ? "registry" : "build",
     commit: command("git", ["rev-parse", "HEAD"], { encoding: "utf8", stdio: "pipe" }).trim(),
     packages: [],
   }
   for (const [name, folder] of packages) {
-    const source = json(join(root, "packages", folder, "package.json"))
-    assert.equal(source.version, version, name)
     const filename = `${name}-${version}.tgz`
     const path = join(directory, filename)
-    command("pnpm", ["--dir", `packages/${folder}`, "pack", "--out", path])
+    if (operation === "verify") {
+      const published = (await metadata(name)).versions[version]
+      assert(published, `Verification requires an existing ${name}@${version}`)
+      assert.equal(new URL(published.dist.tarball).origin, new URL(registry).origin)
+      const response = await fetch(published.dist.tarball, {
+        redirect: "error",
+        signal: AbortSignal.timeout(30000),
+      })
+      assert.equal(response.status, 200)
+      const bytes = Buffer.from(await response.arrayBuffer())
+      checkPublishedArtifact(published, bytes, name, version)
+      writeFileSync(path, bytes)
+    } else {
+      const source = json(join(root, "packages", folder, "package.json"))
+      assert.equal(source.version, version, name)
+      command("pnpm", ["--dir", `packages/${folder}`, "pack", "--out", path])
+    }
     const listing = command("tar", ["-tzf", path], { encoding: "utf8", stdio: "pipe" })
       .trim()
       .split("\n")
@@ -224,13 +251,21 @@ async function run(version, directory, operation) {
   )
   assert(!process.env.NODE_AUTH_TOKEN && !process.env.NPM_TOKEN, "Use OIDC, not a stored npm token")
   const manifest = json(join(directory, "manifest.json"))
+  checkArtifactSource(manifest, operation)
   assert.equal(manifest.version, version)
   assert.equal(manifest.commit, process.env.GITHUB_SHA)
   assert.deepEqual(
     manifest.packages.map((item) => item.name),
     packages.map(([name]) => name),
   )
-  const result = { version, operation, commit: manifest.commit, packages: [], success: false }
+  const result = {
+    version,
+    operation,
+    artifactSource: manifest.artifactSource,
+    commit: manifest.commit,
+    packages: [],
+    success: false,
+  }
   const resultPath = join(directory, "result.json")
   const npm = (args) => command("npm", [...args, `--registry=${registry}`, "--ignore-scripts"])
   try {
@@ -250,7 +285,7 @@ async function run(version, directory, operation) {
         )
     }
     for (const item of manifest.packages) {
-      if (!(await metadata(item.name)).versions[version]) {
+      if (operation === "publish" && !(await metadata(item.name)).versions[version]) {
         npm(["publish", join(directory, item.filename), "--access=public", "--tag=candidate"])
       }
       await verifyPackage(item, version)
@@ -304,7 +339,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const version = process.env.RELEASE_VERSION
   parseVersion(version)
   const directory = resolve(process.env.RELEASE_DIRECTORY)
-  if (process.argv[2] === "prepare") prepare(version, directory)
+  if (process.argv[2] === "prepare")
+    await prepare(version, directory, process.env.RELEASE_OPERATION)
   else if (process.argv[2] === "run") await run(version, directory, process.env.RELEASE_OPERATION)
   else throw new Error("Expected prepare or run")
 }
