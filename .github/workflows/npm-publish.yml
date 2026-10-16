@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Exact version already synchronized to main
+        description: Exact version to publish from main or verify from npm
         required: true
         type: string
       operation:
@@ -28,6 +28,7 @@ jobs:
     timeout-minutes: 15
     env:
       RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_OPERATION: ${{ inputs.operation }}
     steps:
       - name: Set artifact directory
         run: printf '%s\n' "RELEASE_DIRECTORY=$RUNNER_TEMP/astrail-release" >> "$GITHUB_ENV"
@@ -48,7 +49,7 @@ jobs:
       - run: pnpm resources:check
         env:
           ASTRAIL_RESOURCE_BASE: HEAD^
-      - name: Pack and inspect the five public packages
+      - name: Prepare and inspect release archives
         run: node scripts/npm-release.mjs prepare
       - uses: actions/upload-artifact@v4
         with:
