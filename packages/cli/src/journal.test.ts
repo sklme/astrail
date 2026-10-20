@@ -1,8 +1,14 @@
 import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import type { JournalListData, JournalOperation, StructuredOutput } from "astrail-core"
+import {
+  type JournalListData,
+  type JournalOperation,
+  runProcess,
+  type StructuredOutput,
+} from "astrail-core"
 import { afterEach, describe, expect, it } from "vitest"
+import { stringify } from "yaml"
 import { createProgram, type ProgramDependencies } from "./program.js"
 
 const roots: string[] = []
@@ -41,6 +47,128 @@ async function cli<T = unknown>(
 }
 
 describe("journal CLI", () => {
+  it("explains a real bootstrap with named configs, diagnostic details and timed phases", async () => {
+    const root = await workspace()
+    const remote = await workspace()
+    await writeFile(
+      join(remote, "astrail.config.yaml"),
+      stringify({ metadata: { name: "team-config" } }),
+    )
+    for (const args of [
+      ["init", "-b", "main"],
+      ["add", "astrail.config.yaml"],
+      [
+        "-c",
+        "user.name=Journal Test",
+        "-c",
+        "user.email=journal@example.invalid",
+        "commit",
+        "-m",
+        "config",
+      ],
+    ]) {
+      const outcome = await runProcess("git", ["-C", remote, ...args])
+      expect(outcome.exitCode, outcome.stderr).toBe(0)
+    }
+    await mkdir(join(root, "api", "skills", "example"), { recursive: true })
+    await writeFile(
+      join(root, "api", "skills", "example", "SKILL.md"),
+      "---\nname: example\ndescription: Example\n---\nPrivate instructions\n",
+    )
+    await writeFile(
+      join(root, "astrail.yaml"),
+      stringify({
+        apiVersion: "astrail.dev/v1alpha1",
+        kind: "Workspace",
+        metadata: { name: "journal" },
+        extends: [{ git: remote, ref: "main" }],
+        repositories: { api: { source: { type: "local", path: "api" }, access: "read-write" } },
+      }),
+    )
+    const applied = await cli(root, ["bootstrap", "--yes"])
+    expect(applied.result.success, JSON.stringify(applied.result.diagnostics)).toBe(true)
+    const operation = (await cli<JournalListData>(root, ["journal", "list"])).result.data
+      .operations[0]
+    expect(operation?.summary).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^Acquired config team-config \([a-f0-9]{12}\)$/),
+        "Created file journal.code-workspace",
+      ]),
+    )
+    expect(operation?.steps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "config.acquire",
+          status: "success",
+          durationMs: expect.any(Number),
+        }),
+        expect.objectContaining({ name: "skill.discover", status: "success" }),
+        expect.objectContaining({ name: "projection.sync", status: "success" }),
+        expect.objectContaining({ name: "editor.sync", status: "success" }),
+      ]),
+    )
+    expect(operation?.diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "ASTR6105",
+        severity: "information",
+        message: "Bootstrap discovered 1 repository Skill that is not imported.",
+      }),
+    )
+    const human: string[] = []
+    await createProgram({ out: (value) => human.push(value), err: () => {} }).parseAsync(
+      ["--cwd", root, "journal", "show", operation?.operationId ?? ""],
+      { from: "user" },
+    )
+    for (const expected of [
+      "Acquired config team-config",
+      "Steps",
+      "config.acquire",
+      "Duration:",
+      "INFORMATION ASTR6105",
+      "skill discover --all",
+    ])
+      expect(human.join("")).toContain(expected)
+    expect(await readFile(join(root, ".astrail", "journal.jsonl"), "utf8")).not.toContain(
+      "Private instructions",
+    )
+  })
+
+  it("marks failed bootstrap preparation and blocked follow-up stages without claiming a sync", async () => {
+    const root = await workspace()
+    await writeFile(
+      join(root, "astrail.yaml"),
+      stringify({
+        apiVersion: "astrail.dev/v1alpha1",
+        kind: "Workspace",
+        metadata: { name: "journal" },
+        extends: [{ git: "/nonexistent-astrail-journal-config" }],
+      }),
+    )
+    const applied = await cli(root, ["bootstrap", "--yes"])
+    expect(applied.result.success).toBe(false)
+    const operation = (await cli<JournalListData>(root, ["journal", "list"])).result.data
+      .operations[0]
+    expect(operation?.steps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "config.acquire",
+          status: "failed",
+          diagnosticCodes: ["ASTR6106"],
+        }),
+        expect.objectContaining({ name: "projection.sync", status: "skipped", reason: "blocked" }),
+        expect.objectContaining({ name: "editor.sync", status: "skipped", reason: "blocked" }),
+      ]),
+    )
+    expect(operation?.diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "ASTR6106",
+        severity: "error",
+        message: "Shared config acquisition failed.",
+      }),
+    )
+    expect(operation?.changes).toEqual([])
+  })
+
   it("keeps dry-runs, inspection and empty history queries read-only", async () => {
     const root = await workspace()
     const before = (await readdir(root)).sort()

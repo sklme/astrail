@@ -2,6 +2,7 @@ import { lstat, realpath, stat } from "node:fs/promises"
 import { basename, isAbsolute, join, relative, resolve, sep } from "node:path"
 import { applyEdits, modify, type ParseError, parse } from "jsonc-parser"
 import { acquireOperationLock, atomicWrite, isNodeError, readTextIfExists } from "./fs.js"
+import { journalStep } from "./journal-trace.js"
 import type { ChangeAction } from "./lifecycle.js"
 import {
   type Diagnostic,
@@ -273,7 +274,16 @@ export async function syncEditorWorkspace(
   workspace: WorkspaceInput,
   options: { dryRun?: boolean } = {},
 ): Promise<Result<EditorWorkspaceData>> {
-  return applyEditorWorkspace(await planEditorWorkspace(workspace), options)
+  return journalStep(
+    options.dryRun ? "editor.preview" : "editor.sync",
+    async () => applyEditorWorkspace(await planEditorWorkspace(workspace), options),
+    {
+      outcome: (value) => ({
+        diagnostics: value.diagnostics,
+        skipped: options.dryRun ? "dry-run" : !value.data.changed ? "unchanged" : undefined,
+      }),
+    },
+  )
 }
 
 function defaultWorkspaceFile(workspace: WorkspaceInput): string {

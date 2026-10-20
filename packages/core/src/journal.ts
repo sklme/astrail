@@ -2,8 +2,11 @@ import { randomUUID } from "node:crypto"
 import { lstat, mkdir, open, readFile, rename, rm, writeFile } from "node:fs/promises"
 import { join, resolve } from "node:path"
 import { setTimeout as delay } from "node:timers/promises"
+import { type JournalDiagnostic, summarizeJournalDiagnostic } from "./journal-diagnostics.js"
+import { summarizeJournalChanges } from "./journal-summary.js"
 import {
   type JournalChange,
+  type JournalStep,
   type JournalTargets,
   type JournalTrace,
   type JournalValues,
@@ -34,9 +37,14 @@ export interface JournalEvent extends JournalTargets {
   changes?: JournalChange[]
   omittedChanges?: number
   diagnosticCodes?: string[]
+  diagnostics?: JournalDiagnostic[]
+  omittedDiagnostics?: number
+  steps?: JournalStep[]
+  omittedSteps?: number
 }
 export interface JournalOperation extends Omit<JournalEvent, "phase" | "status"> {
   status: "success" | "failed" | "partial" | "unknown"
+  summary?: string[]
 }
 export interface JournalQuery {
   limit?: number
@@ -111,6 +119,8 @@ export async function withWorkspaceJournal<T>(
     changes: [],
     changeCount: 0,
     targets: {},
+    steps: [],
+    stepCount: 0,
     async begin() {
       if (!settings.enabled) return
       starting ??= begin()
@@ -153,6 +163,10 @@ export async function withWorkspaceJournal<T>(
         changes: trace.changes,
         omittedChanges: trace.changeCount - trace.changes.length,
         diagnosticCodes: [...new Set(diagnostics.map((item) => item.code))],
+        diagnostics: diagnostics.slice(0, 100).map(summarizeJournalDiagnostic),
+        omittedDiagnostics: Math.max(0, diagnostics.length - 100),
+        steps: trace.steps,
+        omittedSteps: trace.stepCount - trace.steps.length,
       })
     } catch {
       warn(
@@ -223,6 +237,7 @@ export async function listJournal(
     merged.set(event.operationId, {
       ...common,
       status: phase === "finished" ? (status ?? "unknown") : "unknown",
+      summary: summarizeJournalChanges(common.changes ?? []),
     })
   }
   data.retainedOperations = merged.size
@@ -339,9 +354,20 @@ async function appendEvent(
     // Keep an individual operation bounded as well as the overall file. Report
     // omitted details explicitly; truncation never changes the operation outcome.
     const budget = Math.min(64 * 1024, Math.floor(settings.maxBytes / 2))
-    while (Buffer.byteLength(JSON.stringify(safe)) + 1 > budget && safe.changes?.length) {
-      safe.changes.pop()
-      safe.omittedChanges = (safe.omittedChanges ?? 0) + 1
+    while (Buffer.byteLength(JSON.stringify(safe)) + 1 > budget) {
+      // Share the detail budget so one large category does not erase all others.
+      const largest = (
+        [
+          ["changes", "omittedChanges"],
+          ["steps", "omittedSteps"],
+          ["diagnostics", "omittedDiagnostics"],
+        ] as const
+      )
+        .filter(([key]) => safe[key]?.length)
+        .sort(([a], [b]) => JSON.stringify(safe[b]).length - JSON.stringify(safe[a]).length)[0]
+      if (!largest) break
+      safe[largest[0]]?.pop()
+      safe[largest[1]] = (safe[largest[1]] ?? 0) + 1
     }
     if (Buffer.byteLength(JSON.stringify(safe)) + 1 > budget)
       throw new Error("Journal metadata exceeds event budget")
@@ -451,12 +477,19 @@ function validEvent(value: unknown): value is JournalEvent {
     )
       return false
   if (value.planId !== undefined && typeof value.planId !== "string") return false
-  for (const key of ["durationMs", "omittedChanges"])
+  for (const key of ["durationMs", "omittedChanges", "omittedSteps", "omittedDiagnostics"])
     if (
       value[key] !== undefined &&
       (typeof value[key] !== "number" || !Number.isFinite(value[key]) || value[key] < 0)
     )
       return false
+  if (value.steps !== undefined && (!Array.isArray(value.steps) || !value.steps.every(validStep)))
+    return false
+  if (
+    value.diagnostics !== undefined &&
+    (!Array.isArray(value.diagnostics) || !value.diagnostics.every(validDiagnostic))
+  )
+    return false
   if (
     value.changes !== undefined &&
     (!Array.isArray(value.changes) ||
@@ -496,6 +529,10 @@ function sanitizeEvent(event: JournalEvent): JournalEvent {
     ...(event.durationMs !== undefined ? { durationMs: event.durationMs } : {}),
     ...(event.planId ? { planId: clean(event.planId) } : {}),
     ...(event.omittedChanges !== undefined ? { omittedChanges: event.omittedChanges } : {}),
+    ...(event.omittedSteps !== undefined ? { omittedSteps: event.omittedSteps } : {}),
+    ...(event.omittedDiagnostics !== undefined
+      ? { omittedDiagnostics: event.omittedDiagnostics }
+      : {}),
   }
   for (const key of [
     "repositories",
@@ -514,7 +551,83 @@ function sanitizeEvent(event: JournalEvent): JournalEvent {
       ...(item.before !== undefined ? { before: cleanValues(item.before) } : {}),
       ...(item.after !== undefined ? { after: cleanValues(item.after) } : {}),
     }))
+  if (event.steps)
+    safe.steps = event.steps.map((step) => ({
+      id: clean(step.id),
+      ...(step.parentId ? { parentId: clean(step.parentId) } : {}),
+      name: clean(step.name),
+      ...(step.target ? { target: clean(step.target) } : {}),
+      startedAt: step.startedAt,
+      durationMs: step.durationMs,
+      status: step.status,
+      ...(step.reason ? { reason: step.reason } : {}),
+      ...(step.diagnosticCodes ? { diagnosticCodes: step.diagnosticCodes.map(clean) } : {}),
+    }))
+  if (event.diagnostics)
+    safe.diagnostics = event.diagnostics.map((item) => ({
+      code: clean(item.code),
+      severity: item.severity,
+      message: clean(item.message),
+      remediation: clean(item.remediation),
+      messageSource: item.messageSource,
+      ...(item.location
+        ? {
+            location: {
+              file: clean(item.location.file),
+              line: item.location.line,
+              column: item.location.column,
+              pointer: clean(item.location.pointer),
+            },
+          }
+        : {}),
+    }))
   return safe
+}
+
+function validStep(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    typeof value.startedAt === "string" &&
+    Number.isFinite(Date.parse(value.startedAt)) &&
+    typeof value.durationMs === "number" &&
+    Number.isFinite(value.durationMs) &&
+    value.durationMs >= 0 &&
+    ["success", "failed", "skipped"].includes(String(value.status)) &&
+    (value.parentId === undefined || typeof value.parentId === "string") &&
+    (value.target === undefined || typeof value.target === "string") &&
+    (value.reason === undefined ||
+      ["no-actions", "blocked", "dry-run", "unchanged"].includes(String(value.reason))) &&
+    (value.diagnosticCodes === undefined ||
+      (Array.isArray(value.diagnosticCodes) &&
+        value.diagnosticCodes.every((code: unknown) => typeof code === "string")))
+  )
+}
+
+function validDiagnostic(value: unknown): boolean {
+  if (
+    !isRecord(value) ||
+    typeof value.code !== "string" ||
+    typeof value.message !== "string" ||
+    typeof value.remediation !== "string" ||
+    !["error", "warning", "information"].includes(String(value.severity)) ||
+    !["catalog", "fallback"].includes(String(value.messageSource))
+  )
+    return false
+  const location = value.location
+  return (
+    location === undefined ||
+    (isRecord(location) &&
+      typeof location.file === "string" &&
+      typeof location.pointer === "string" &&
+      typeof location.line === "number" &&
+      Number.isSafeInteger(location.line) &&
+      location.line >= 0 &&
+      typeof location.column === "number" &&
+      Number.isSafeInteger(location.column) &&
+      location.column >= 0)
+  )
 }
 
 function cleanValues(value: JournalValues | null): JournalValues | null {
@@ -565,6 +678,12 @@ function hasRemainingChanges(trace: JournalTrace): boolean {
     (change) =>
       change.before === undefined ||
       change.after === undefined ||
+      // Projection ownership/identity cannot prove content was restored. Keep
+      // failures conservative unless both content snapshots are available.
+      (change.kind === "projection" &&
+        change.before !== null &&
+        change.after !== null &&
+        (!change.before.integrity || !change.after.integrity)) ||
       JSON.stringify(change.before) !== JSON.stringify(change.after),
   )
 }

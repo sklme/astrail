@@ -23,6 +23,7 @@ import {
   type GitCapabilityResolution,
   journalBeforeMutation,
   journalChange,
+  journalStep,
   journalTargets,
   pathExists,
   type ResolvedCapability,
@@ -132,6 +133,12 @@ export interface CodexProjectionPlan {
 }
 
 export async function planCodexProjection(
+  workspace: ResolvedWorkspace,
+): Promise<CodexProjectionPlan> {
+  return journalStep("projection.plan", () => planCodexProjectionObserved(workspace))
+}
+
+async function planCodexProjectionObserved(
   workspace: ResolvedWorkspace,
 ): Promise<CodexProjectionPlan> {
   const diagnostics = workspace.diagnostics.filter((item) => item.severity === "error")
@@ -446,6 +453,22 @@ export async function syncCodexProjection(
   plan: CodexProjectionPlan,
   options: { dryRun?: boolean; authorized?: boolean; temporaryRoot?: string } = {},
 ): Promise<Result<CodexProjectionPlan>> {
+  return journalStep("projection.sync", () => syncCodexProjectionObserved(plan, options), {
+    outcome: (value) => ({
+      diagnostics: value.diagnostics,
+      skipped: options.dryRun
+        ? "dry-run"
+        : plan.changePlan.actions.length === 0
+          ? "no-actions"
+          : undefined,
+    }),
+  })
+}
+
+async function syncCodexProjectionObserved(
+  plan: CodexProjectionPlan,
+  options: { dryRun?: boolean; authorized?: boolean; temporaryRoot?: string } = {},
+): Promise<Result<CodexProjectionPlan>> {
   if (options.dryRun || plan.diagnostics.some((item) => item.severity === "error")) {
     return result(plan, plan.diagnostics)
   }
@@ -604,7 +627,15 @@ export async function syncCodexProjection(
           continue
         }
         await rm(destination, { recursive: true, force: true })
-        journalChange({ kind: "projection", target: artifact.path, action: "remove", after: null })
+        journalChange({
+          kind: "projection",
+          target: artifact.path,
+          action: "remove",
+          before: projectionSnapshot(
+            previous?.artifacts.find((item) => item.path === artifact.path),
+          ),
+          after: null,
+        })
       }
       await mkdir(dirname(destination), { recursive: true })
       try {
@@ -628,6 +659,7 @@ export async function syncCodexProjection(
         kind: "projection",
         target: artifact.path,
         action: "project",
+        before: null,
         after: { identity: artifact.identity, ownership: artifact.ownership },
       })
     }
@@ -657,6 +689,7 @@ export async function syncCodexProjection(
         kind: "projection",
         target: artifact.path,
         action: "project",
+        before: null,
         after: { identity: artifact.identity, ownership: artifact.ownership },
       })
     }
@@ -678,7 +711,13 @@ export async function syncCodexProjection(
       }
       await journalBeforeMutation()
       await rm(join(plan.root, artifact.path), { recursive: true, force: true })
-      journalChange({ kind: "projection", target: artifact.path, action: "remove", after: null })
+      journalChange({
+        kind: "projection",
+        target: artifact.path,
+        action: "remove",
+        before: projectionSnapshot(artifact),
+        after: null,
+      })
     }
     if (plan.changes.some((change) => change.kind === "manifest" || change.kind === "acquire")) {
       const manifest: ProjectionManifest = {
@@ -1180,4 +1219,11 @@ function uniqueDiagnostics(diagnostics: Diagnostic[]): Diagnostic[] {
     seen.add(key)
     return true
   })
+}
+
+// Ownership metadata identifies a projection; it does not prove current content.
+function projectionSnapshot(artifact: ProjectionArtifact | undefined) {
+  return artifact
+    ? { identity: artifact.identity, ownership: artifact.ownership }
+    : { observed: false }
 }

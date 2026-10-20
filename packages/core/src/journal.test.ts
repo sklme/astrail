@@ -15,7 +15,13 @@ import { stringify } from "yaml"
 import { applyEnvironmentCheckout, planEnvironmentCheckout } from "./environment-checkout.js"
 import { atomicWrite, pathExists } from "./fs.js"
 import { listJournal, parseJournalSince, showJournal, withWorkspaceJournal } from "./journal.js"
-import { journalBeforeMutation, journalChange, journalTargets } from "./journal-trace.js"
+import {
+  journalBeforeMutation,
+  journalChange,
+  journalSkipStep,
+  journalStep,
+  journalTargets,
+} from "./journal-trace.js"
 import { loadWorkspace } from "./manifest.js"
 import { runProcess } from "./process.js"
 import { diagnostic, result } from "./types.js"
@@ -54,6 +60,218 @@ async function change(root: string, content: string) {
 }
 
 describe("workspace journal", () => {
+  it("does not treat a refreshed projection with the same identity as a verified rollback", async () => {
+    const root = await workspace()
+    await scoped(root, async () => {
+      await journalBeforeMutation()
+      journalChange({
+        kind: "projection",
+        target: "skill",
+        action: "remove",
+        before: { identity: "team/skill", ownership: "derived-copy" },
+        after: null,
+      })
+      journalChange({
+        kind: "projection",
+        target: "skill",
+        action: "project",
+        before: null,
+        after: { identity: "team/skill", ownership: "derived-copy" },
+      })
+      return result(null, [diagnostic("ASTR7405", "error", "later failure")])
+    })
+    expect((await listJournal(root)).data.operations[0]?.status).toBe("partial")
+  })
+
+  it("retains safe diagnostic explanations, numeric context and location without raw messages or details", async () => {
+    const root = await workspace()
+    const secret = "unmarked-private-config-value"
+    await scoped(root, async () => {
+      await atomicWrite(join(root, "state.txt"), secret)
+      return result(null, [
+        diagnostic("ASTR6105", "information", secret, {
+          remediation: secret,
+          details: { repositorySkills: { unimported: 2, token: secret }, stderr: secret },
+          location: { file: "astrail.yaml", line: 3, column: 1, pointer: "/repositories" },
+        }),
+        diagnostic("ASTR9999", "warning", secret),
+      ])
+    })
+    const operation = (await listJournal(root)).data.operations[0]
+    expect(operation?.diagnostics).toEqual([
+      expect.objectContaining({
+        code: "ASTR6105",
+        severity: "information",
+        messageSource: "catalog",
+        message: "Bootstrap discovered 2 repository Skills that are not imported.",
+        remediation: expect.stringContaining("skill discover --all"),
+        location: { file: "astrail.yaml", line: 3, column: 1, pointer: "/repositories" },
+      }),
+      expect.objectContaining({
+        code: "ASTR9999",
+        severity: "warning",
+        messageSource: "fallback",
+        message: "Diagnostic text was not retained for this code.",
+      }),
+    ])
+    expect(await readFile(journalFile(root), "utf8")).not.toContain(secret)
+  })
+
+  it("records nested and parallel steps in start order, with failures and explicit skips", async () => {
+    const root = await workspace()
+    await scoped(root, () =>
+      journalStep("bootstrap", async () => {
+        await Promise.all([
+          journalStep(
+            "config.acquire",
+            async () => {
+              await new Promise((resolve) => setTimeout(resolve, 20))
+              await atomicWrite(join(root, "config.txt"), "content")
+              return result(null)
+            },
+            { target: "team" },
+          ),
+          journalStep(
+            "repository.prepare",
+            async () => result(null, [diagnostic("ASTR6101", "error", "not retained")]),
+            { target: "api" },
+          ),
+        ])
+        journalSkipStep("projection.sync", "blocked")
+        return result(null, [diagnostic("ASTR6101", "error", "not retained")])
+      }),
+    )
+    const operation = (await listJournal(root)).data.operations[0]
+    expect(operation?.status).toBe("partial")
+    expect(operation?.steps).toMatchObject([
+      { id: "step-1", name: "bootstrap", status: "failed" },
+      {
+        id: "step-2",
+        parentId: "step-1",
+        name: "config.acquire",
+        target: "team",
+        status: "success",
+      },
+      {
+        id: "step-3",
+        parentId: "step-1",
+        name: "repository.prepare",
+        status: "failed",
+        diagnosticCodes: ["ASTR6101"],
+      },
+      {
+        id: "step-4",
+        parentId: "step-1",
+        name: "projection.sync",
+        status: "skipped",
+        reason: "blocked",
+        durationMs: 0,
+      },
+    ])
+    expect(operation?.steps?.[1]?.durationMs).toBeGreaterThanOrEqual(10)
+    expect(operation?.steps?.[0]?.durationMs).toBeGreaterThanOrEqual(
+      operation?.steps?.[1]?.durationMs ?? 0,
+    )
+  })
+
+  it("keeps step observations advisory, records thrown failures and keeps no-ops read-only", async () => {
+    const root = await workspace()
+    await scoped(root, () => journalStep("check", async () => result(null)))
+    expect(await pathExists(join(root, ".astrail"))).toBe(false)
+    const disabled = await workspace({ enabled: false })
+    await scoped(disabled, () =>
+      journalStep("write", async () => {
+        await atomicWrite(join(disabled, "state.txt"), "value")
+        return result(null)
+      }),
+    )
+    expect(await pathExists(join(disabled, ".astrail"))).toBe(false)
+    const outcome = await scoped(root, () =>
+      journalStep(
+        "write",
+        async () => {
+          await atomicWrite(join(root, "state.txt"), "value")
+          return result(null)
+        },
+        {
+          outcome: () => {
+            throw new Error("observer failure")
+          },
+        },
+      ),
+    )
+    expect(outcome.success).toBe(true)
+    await expect(
+      scoped(root, () =>
+        journalStep("throw", async () => {
+          throw new Error("raw-unmarked-secret")
+        }),
+      ),
+    ).rejects.toThrow("raw-unmarked-secret")
+    expect((await listJournal(root)).data.operations[0]?.steps).toMatchObject([
+      { name: "throw", status: "failed", diagnosticCodes: ["ASTR9001"] },
+    ])
+    expect(await readFile(journalFile(root), "utf8")).not.toContain("raw-unmarked-secret")
+  })
+
+  it("bounds every new detail category and reports omissions without losing the result", async () => {
+    const root = await workspace({ maxBytes: 4096 })
+    const outcome = await scoped(root, async () => {
+      for (let index = 0; index < 220; index++) {
+        await journalStep("prepare", async () => {
+          await atomicWrite(join(root, "state.txt"), String(index))
+        })
+      }
+      return result(
+        null,
+        Array.from({ length: 120 }, () => diagnostic("ASTR6105", "information", "private")),
+      )
+    })
+    expect(outcome.success).toBe(true)
+    expect(outcome.diagnostics.some((item) => item.code === "ASTR7502")).toBe(false)
+    const operation = (await listJournal(root)).data.operations[0]
+    expect(operation?.status).toBe("success")
+    expect((operation?.steps?.length ?? 0) + (operation?.omittedSteps ?? 0)).toBe(220)
+    expect((operation?.diagnostics?.length ?? 0) + (operation?.omittedDiagnostics ?? 0)).toBe(120)
+    expect((operation?.changes?.length ?? 0) + (operation?.omittedChanges ?? 0)).toBe(220)
+    expect(operation?.steps?.length).toBeGreaterThan(0)
+    expect(operation?.diagnostics?.length).toBeGreaterThan(0)
+    expect(operation?.changes?.length).toBeGreaterThan(0)
+    expect(Buffer.byteLength(await readFile(journalFile(root), "utf8"))).toBeLessThanOrEqual(4096)
+  })
+
+  it("summarizes old records without inventing diagnostic severity or step timings", async () => {
+    const root = await workspace()
+    await mkdir(join(root, ".astrail"))
+    const old = {
+      schemaVersion: "1",
+      operationId: "old",
+      command: "sync",
+      astrailVersion: "0.11.0",
+      startedAt: "2026-10-20T00:00:00Z",
+      timestamp: "2026-10-20T00:00:01Z",
+      phase: "finished",
+      status: "success",
+      diagnosticCodes: ["ASTR6105"],
+      changes: [
+        { kind: "projection", target: ".agents/skills/example", action: "remove", after: null },
+        {
+          kind: "projection",
+          target: ".agents/skills/example",
+          action: "project",
+          after: { identity: "team/example" },
+        },
+      ],
+    }
+    await writeFile(journalFile(root), `${JSON.stringify(old)}\n`)
+    const before = await readFile(journalFile(root), "utf8")
+    const operation = (await showJournal(root, "old")).data.operation
+    expect(operation?.summary).toEqual(["Refreshed projection team/example"])
+    expect(operation?.steps).toBeUndefined()
+    expect(operation?.diagnostics).toBeUndefined()
+    expect(await readFile(journalFile(root), "utf8")).toBe(before)
+  })
+
   it("records completed facts, timestamps and targets while excluding contents and diagnostic text", async () => {
     const root = await workspace()
     const secret = "secret-value-do-not-store"

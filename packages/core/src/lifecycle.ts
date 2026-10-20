@@ -17,6 +17,7 @@ import {
   journalBeforeMutation,
   journalChange,
   journalPath,
+  journalStep,
   journalTargets,
 } from "./journal-trace.js"
 import { loadWorkspace } from "./manifest.js"
@@ -265,6 +266,19 @@ export async function applyBootstrap(
   plan: ChangePlan,
   options: ApplyPlanOptions,
 ): Promise<Result<ChangePlan>> {
+  return journalStep("bootstrap.prepare", () => applyBootstrapObserved(workspace, plan, options), {
+    outcome: (value) => ({
+      diagnostics: value.diagnostics,
+      skipped: options.dryRun ? "dry-run" : plan.actions.length === 0 ? "no-actions" : undefined,
+    }),
+  })
+}
+
+async function applyBootstrapObserved(
+  workspace: ResolvedWorkspace,
+  plan: ChangePlan,
+  options: ApplyPlanOptions,
+): Promise<Result<ChangePlan>> {
   const diagnostics = uniqueDiagnostics([
     ...plan.diagnostics,
     ...workspace.diagnostics.filter(isBootstrapBlockingDiagnostic),
@@ -305,10 +319,15 @@ export async function applyBootstrap(
         await mkdir(dirname(action.target), { recursive: true })
         const repositoryId = String(action.details?.repository ?? "")
         const repository = workspace.config.repositories?.[repositoryId]
-        await cloneRepository(
-          remote,
-          action.target,
-          repository?.source.type === "git" ? repository.source.revision : undefined,
+        await journalStep(
+          "repository.clone",
+          () =>
+            cloneRepository(
+              remote,
+              action.target,
+              repository?.source.type === "git" ? repository.source.revision : undefined,
+            ),
+          { target: repositoryId },
         )
       } finally {
         const after = before

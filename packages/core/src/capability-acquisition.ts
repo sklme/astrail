@@ -5,6 +5,7 @@ import type { GitCapabilitySource } from "astrail-schema"
 import { capabilityIntegrity } from "./capability.js"
 import { pathExists } from "./fs.js"
 import { cloneRepository } from "./git.js"
+import { journalStep } from "./journal-trace.js"
 import { runProcess } from "./process.js"
 import type { ResolvedCapability } from "./types.js"
 
@@ -25,6 +26,15 @@ export interface GitCapabilityResolution {
 }
 
 export async function stageGitCapability(
+  capability: ResolvedCapability,
+  options: { temporaryRoot?: string } = {},
+): Promise<StagedGitCapability> {
+  return journalStep("skill.acquire", () => stageGitCapabilityObserved(capability, options), {
+    target: capability.identity,
+  })
+}
+
+async function stageGitCapabilityObserved(
   capability: ResolvedCapability,
   options: { temporaryRoot?: string } = {},
 ): Promise<StagedGitCapability> {

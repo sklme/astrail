@@ -2,7 +2,12 @@ import { lstat, mkdir, mkdtemp, realpath, rename, rm, rmdir } from "node:fs/prom
 import { dirname, join, relative, sep } from "node:path"
 import type { AstrailWorkspaceV1Alpha1 } from "astrail-schema"
 import { cloneRepository, inspectRepository } from "./git.js"
-import { journalBeforeMutation, journalChange, journalTargets } from "./journal-trace.js"
+import {
+  journalBeforeMutation,
+  journalChange,
+  journalStep,
+  journalTargets,
+} from "./journal-trace.js"
 import { runProcess } from "./process.js"
 import { resolveRepositories } from "./resolver.js"
 import { type Diagnostic, diagnostic, type ResolvedRepository } from "./types.js"
@@ -69,6 +74,10 @@ export async function planRepositoryPreparation(
 
 // Caller owns the workspace operation lock. Never remove or modify an existing checkout.
 export async function applyRepositoryPreparation(plan: RepositoryPreparationPlan): Promise<void> {
+  return journalStep("repository.prepare", () => applyRepositoryPreparationObserved(plan))
+}
+
+async function applyRepositoryPreparationObserved(plan: RepositoryPreparationPlan): Promise<void> {
   for (const entry of plan.entries) {
     const repository = entry.repository
     const path = repository.path
@@ -84,9 +93,14 @@ export async function applyRepositoryPreparation(plan: RepositoryPreparationPlan
       journalTargets({ repositories: [repository.id] })
       await journalBeforeMutation()
       const temporary = await mkdtemp(join(parent, ".astrail-clone-"))
+      const source = repository.source
       try {
         const checkout = join(temporary, "checkout")
-        await cloneRepository(repository.source.url, checkout, repository.source.revision)
+        await journalStep(
+          "repository.clone",
+          () => cloneRepository(source.url, checkout, source.revision),
+          { target: repository.id },
+        )
         const errors = await validateCheckout({
           ...repository,
           path: checkout,

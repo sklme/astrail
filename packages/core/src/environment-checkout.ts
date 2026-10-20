@@ -6,6 +6,7 @@ import {
   isJournalRecording,
   journalBeforeMutation,
   journalChange,
+  journalStep,
   journalTargets,
 } from "./journal-trace.js"
 import { loadWorkspace } from "./manifest.js"
@@ -281,6 +282,17 @@ export async function planEnvironmentCheckout(
 }
 
 export async function applyEnvironmentCheckout(
+  plan: EnvironmentCheckoutPlan,
+  options: EnvironmentCheckoutApplyOptions = {},
+): Promise<Result<EnvironmentCheckoutApplyData>> {
+  return journalStep(
+    "environment.checkout",
+    () => applyEnvironmentCheckoutObserved(plan, options),
+    { target: plan.environment },
+  )
+}
+
+async function applyEnvironmentCheckoutObserved(
   plan: EnvironmentCheckoutPlan,
   options: EnvironmentCheckoutApplyOptions = {},
 ): Promise<Result<EnvironmentCheckoutApplyData>> {

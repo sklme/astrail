@@ -3,6 +3,7 @@ import { createHash } from "node:crypto"
 import { readFile } from "node:fs/promises"
 import { isAbsolute, relative, sep } from "node:path"
 import { parse } from "yaml"
+import type { Diagnostic } from "./types.js"
 
 export type JournalValues = Record<string, string | number | boolean | null>
 export interface JournalChange {
@@ -26,7 +27,96 @@ export interface JournalTrace {
   changes: JournalChange[]
   changeCount: number
   targets: JournalTargets
+  steps: JournalStep[]
+  stepCount: number
   begin(): Promise<void>
+}
+
+export type JournalSkipReason = "no-actions" | "blocked" | "dry-run" | "unchanged"
+export interface JournalStep {
+  id: string
+  parentId?: string
+  name: string
+  target?: string
+  startedAt: string
+  durationMs: number
+  status: "success" | "failed" | "skipped"
+  reason?: JournalSkipReason
+  diagnosticCodes?: string[]
+}
+
+const stepContext = new AsyncLocalStorage<string>()
+
+// Steps only collect observations in memory. They do not start a journal or turn
+// read-only commands and successful no-ops into filesystem writes.
+export async function journalStep<T>(
+  name: string,
+  operation: () => Promise<T>,
+  options: {
+    target?: string | undefined
+    outcome?: (value: T) => { diagnostics?: Diagnostic[]; skipped?: JournalSkipReason | undefined }
+  } = {},
+): Promise<T> {
+  const trace = journalTrace.getStore()
+  if (!trace) return operation()
+  const step = newStep(trace, name, options.target)
+  const start = performance.now()
+  try {
+    return await stepContext.run(step.id, async () => {
+      const value = await operation()
+      // An observer failure must not change a successful operation's result.
+      step.status = "success"
+      try {
+        const outcome = options.outcome?.(value)
+        const diagnostics =
+          outcome?.diagnostics ??
+          (value &&
+          typeof value === "object" &&
+          "diagnostics" in value &&
+          Array.isArray(value.diagnostics)
+            ? (value.diagnostics as Diagnostic[])
+            : [])
+        step.diagnosticCodes = [...new Set(diagnostics.map((item) => item.code))]
+        const failed =
+          diagnostics.some((item) => item.severity === "error") ||
+          (value && typeof value === "object" && "success" in value && value.success === false)
+        step.status = failed ? "failed" : outcome?.skipped ? "skipped" : "success"
+        if (!failed && outcome?.skipped) step.reason = outcome.skipped
+      } catch {
+        // The underlying operation completed; omit unavailable observation data.
+      }
+      return value
+    })
+  } catch (error) {
+    step.status = "failed"
+    step.diagnosticCodes = ["ASTR9001"]
+    throw error
+  } finally {
+    step.durationMs = Math.max(0, Math.round(performance.now() - start))
+  }
+}
+
+export function journalSkipStep(name: string, reason: JournalSkipReason, target?: string): void {
+  const trace = journalTrace.getStore()
+  if (!trace) return
+  const step = newStep(trace, name, target)
+  step.status = "skipped"
+  step.reason = reason
+}
+
+function newStep(trace: JournalTrace, name: string, target?: string): JournalStep {
+  const parentId = stepContext.getStore()
+  const step: JournalStep = {
+    id: `step-${++trace.stepCount}`,
+    ...(parentId ? { parentId } : {}),
+    name,
+    ...(target ? { target } : {}),
+    startedAt: new Date().toISOString(),
+    durationMs: 0,
+    status: "failed",
+  }
+  if (trace.steps.length < 200) trace.steps.push(step)
+  return step
 }
 
 // A command scope collects completed effects across core and target adapters. Core

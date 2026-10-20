@@ -10,7 +10,7 @@ import {
 } from "./config-source.js"
 import { atomicWrite, pathExists } from "./fs.js"
 import { cloneRepository, inspectRepository } from "./git.js"
-import { journalBeforeMutation, journalChange } from "./journal-trace.js"
+import { journalBeforeMutation, journalChange, journalStep } from "./journal-trace.js"
 import { parseConfigText, validateGitConfigResources } from "./manifest.js"
 import { runProcess } from "./process.js"
 import { inspectAstrailRequirement } from "./runtime-requirements.js"
@@ -21,11 +21,32 @@ export async function acquireConfigs(
   configs: LoadedConfig[],
   runtimeVersion: string,
 ): Promise<Diagnostic[]> {
+  return journalStep(
+    "config.acquire",
+    () => acquireConfigsObserved(root, configs, runtimeVersion),
+    { target: configs[0]?.key, outcome: (diagnostics) => ({ diagnostics }) },
+  )
+}
+
+async function acquireConfigsObserved(
+  root: string,
+  configs: LoadedConfig[],
+  runtimeVersion: string,
+): Promise<Diagnostic[]> {
   const first = configs[0]
   if (!first || first.source.type === "local") return []
   const diagnostics: Diagnostic[] = []
+  const names = new Map<string, string>()
   const validate = async (text: string, config: LoadedConfig, path: string): Promise<boolean> => {
     const parsed = parseConfigText(text, path, config.source.type === "http")
+    const metadata = parsed.value.metadata
+    if (
+      metadata &&
+      typeof metadata === "object" &&
+      "name" in metadata &&
+      typeof metadata.name === "string"
+    )
+      names.set(config.key, metadata.name)
     diagnostics.push(
       ...parsed.diagnostics,
       ...inspectAstrailRequirement(parsed.value, path, runtimeVersion, parsed.locations)
@@ -54,7 +75,10 @@ export async function acquireConfigs(
         kind: "config",
         target: first.key,
         action: "download",
-        after: { integrity: configIntegrity(text) },
+        after: {
+          ...(names.has(first.key) ? { identity: names.get(first.key) ?? first.key } : {}),
+          integrity: configIntegrity(text),
+        },
       })
     } else {
       const destination = configCacheRoot(root, first.source)
@@ -149,7 +173,10 @@ export async function acquireConfigs(
         kind: "config",
         target: first.key,
         action: "clone",
-        after: { revision: observed.revision ?? null },
+        after: {
+          ...(names.has(first.key) ? { identity: names.get(first.key) ?? first.key } : {}),
+          revision: observed.revision ?? null,
+        },
       })
     }
   } catch (error) {

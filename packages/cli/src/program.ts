@@ -24,6 +24,8 @@ import {
   type EnvironmentCheckoutPlan,
   explainProvenance,
   getEnvironmentCheckoutStatus,
+  journalSkipStep,
+  journalStep,
   listJournal,
   loadContextContent,
   loadWorkspace,
@@ -1522,6 +1524,7 @@ function addProjectionCommands(program: Command, writer: OutputWriter): void {
             dryRun: options.dryRun === true,
             authorized: options.yes === true,
           })
+          if (!synced.success) journalSkipStep("editor.sync", "blocked")
           const editorWorkspace = await syncEditorWorkspace(workspace, {
             dryRun: options.dryRun === true || !synced.success,
           })
@@ -1586,7 +1589,9 @@ function addLifecycleCommands(program: Command, writer: OutputWriter): void {
                 ),
               )
           }
-          const inspectedSkills = await inspectBootstrapRepositorySkills(context)
+          const inspectedSkills = await journalStep("skill.discover", () =>
+            inspectBootstrapRepositorySkills(context),
+          )
           if (
             applyDiagnostics.every((item) => item.severity !== "error") &&
             workspace.configs.every((config) => config.available)
@@ -1597,6 +1602,7 @@ function addLifecycleCommands(program: Command, writer: OutputWriter): void {
               dryRun: options.dryRun === true,
               authorized: options.yes === true,
             })
+            if (!synced.success) journalSkipStep("editor.sync", "blocked")
             const editorWorkspace = await syncEditorWorkspace(await resolveWorkspace(context), {
               dryRun: options.dryRun === true || !synced.success,
             })
@@ -1622,6 +1628,8 @@ function addLifecycleCommands(program: Command, writer: OutputWriter): void {
               ]),
             )
           }
+          journalSkipStep("projection.sync", "blocked")
+          journalSkipStep("editor.sync", "blocked")
           return result(
             {
               bootstrap: plans,

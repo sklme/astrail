@@ -5,6 +5,7 @@ import { resolveConfigSetups } from "./config-setup.js"
 import { contextCatalog } from "./context.js"
 import { validateEnvironmentBranches } from "./environment-branches.js"
 import { inspectRepository, inspectRepositorySubpath } from "./git.js"
+import { journalStep } from "./journal-trace.js"
 import { loadWorkspace } from "./manifest.js"
 import {
   type Diagnostic,
@@ -14,6 +15,18 @@ import {
 } from "./types.js"
 
 export async function resolveWorkspace(
+  options: {
+    cwd?: string
+    config?: string
+    observe?: boolean
+    ignoreLock?: boolean
+    astrailVersion?: string
+  } = {},
+): Promise<ResolvedWorkspace> {
+  return journalStep("workspace.resolve", () => resolveWorkspaceObserved(options))
+}
+
+async function resolveWorkspaceObserved(
   options: {
     cwd?: string
     config?: string

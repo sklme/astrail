@@ -9,11 +9,21 @@ export * from "./environment-checkout.js"
 export * from "./fs.js"
 export * from "./git.js"
 export * from "./journal.js"
-export type { JournalChange, JournalTargets, JournalValues } from "./journal-trace.js"
+export type { JournalDiagnostic } from "./journal-diagnostics.js"
+export { summarizeJournalChanges } from "./journal-summary.js"
+export type {
+  JournalChange,
+  JournalSkipReason,
+  JournalStep,
+  JournalTargets,
+  JournalValues,
+} from "./journal-trace.js"
 export {
   journalBeforeMutation,
   journalChange,
   journalPath,
+  journalSkipStep,
+  journalStep,
   journalTargets,
 } from "./journal-trace.js"
 export * from "./lifecycle.js"

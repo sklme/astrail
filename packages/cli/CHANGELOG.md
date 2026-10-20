@@ -1,5 +1,17 @@
 # astrail
 
+## 0.12.0
+
+### Minor Changes
+
+- Make workspace journals explain retained changes with readable summaries, safe diagnostic details, and nested step outcomes and durations. Preserve legacy record support, read-only/no-op behavior, redaction, and bounded retention.
+
+### Patch Changes
+
+- Updated dependencies
+  - astrail-core@0.12.0
+  - astrail-target-codex@0.12.0
+
 ## 0.11.0
 
 ### Patch Changes
