@@ -5,6 +5,19 @@
     "outDir": "dist",
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
-  "references": [{ "path": "../core" }, { "path": "../target-codex" }],
+  "references": [
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../target-codex"
+    },
+    {
+      "path": "../target-shared"
+    },
+    {
+      "path": "../target-codebuddy"
+    }
+  ],
   "include": ["src/**/*.ts"]
 }

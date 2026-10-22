@@ -227,7 +227,7 @@ export interface Targets {
 }
 export interface Target {
   disabled?: boolean;
-  type: "codex";
+  type: "codex" | "codebuddy";
   primary?: boolean;
   extensions?: Extensions;
 }

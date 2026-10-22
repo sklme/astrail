@@ -1,6 +1,6 @@
 {
   "name": "astrail",
-  "version": "0.13.1",
+  "version": "0.14.0",
   "description": "Chart the working trail for every agent",
   "license": "Apache-2.0",
   "repository": {
@@ -38,7 +38,9 @@
     "@commander-js/extra-typings": "15.0.0",
     "commander": "15.0.0",
     "semver": "7.8.5",
-    "yaml": "2.9.0"
+    "yaml": "2.9.0",
+    "astrail-target-codebuddy": "workspace:*",
+    "astrail-target-shared": "workspace:*"
   },
   "devDependencies": {
     "@types/semver": "7.7.1"

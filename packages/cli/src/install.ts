@@ -1,4 +1,4 @@
-import { join, resolve } from "node:path"
+import { resolve } from "node:path"
 import {
   acquireConfigs,
   applyBootstrap,
@@ -29,10 +29,10 @@ import {
   withWorkspaceTransaction,
 } from "astrail-core"
 import {
-  gitCapabilityResolutions,
-  planCodexProjection,
-  syncCodexProjection,
-} from "astrail-target-codex"
+  planWorkspaceProjections,
+  syncWorkspaceProjections,
+  workspaceGitResolutions,
+} from "./projections.js"
 
 interface InstallContext {
   cwd?: string
@@ -227,14 +227,13 @@ async function runInstall(
       if (previous?.integrity && !capability.integrity) capability.integrity = previous.integrity
     }
   }
-  const projection = await planCodexProjection(workspace, { refreshGit: options.update === true })
-  await transaction?.capture([
-    ...projection.changePlan.actions.map((action) => action.target),
-    join(workspace.root, ".astrail", "projection-manifest.json"),
-  ])
-  const synced = await syncCodexProjection(projection, {
+  const projection = await planWorkspaceProjections(workspace, {
+    refreshGit: options.update === true,
+  })
+  const synced = await syncWorkspaceProjections(projection, {
     dryRun: options.dryRun === true,
     authorized: options.yes === true,
+    ...(transaction ? { transaction } : {}),
   })
   data.projection = synced.data
   diagnostics.push(...workspace.diagnostics, ...synced.diagnostics)
@@ -252,7 +251,7 @@ async function runInstall(
   if (!editor.success) return finish()
 
   const lock = await (options.update ? planUpdate : planLock)(workspace, {
-    acquisitions: gitCapabilityResolutions(synced.data),
+    acquisitions: workspaceGitResolutions(synced.data),
   })
   await transaction?.capture(lock.actions.map((action) => action.target))
   const locked = await applyFilePlan(workspace.root, lock, { dryRun: options.dryRun === true })
@@ -275,7 +274,7 @@ export interface WorkspaceInstallData {
   lock?: ChangePlan
   rolledBack?: boolean
   bootstrap: ChangePlan[]
-  projection?: Awaited<ReturnType<typeof syncCodexProjection>>["data"]
+  projection?: Awaited<ReturnType<typeof syncWorkspaceProjections>>["data"]
   repositorySkills: RepositorySkillInventory
   setup: CliConfigSetupEntry[]
 }

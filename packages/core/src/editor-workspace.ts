@@ -17,6 +17,7 @@ export type EditorId = (typeof EDITOR_IDS)[number]
 export const DEFAULT_WORKSPACE_FILE = "astrail.code-workspace"
 const FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9._ -]*\.code-workspace$/
 const STATE_FILE = ".astrail/editor-workspace.json"
+const ROOT_SETTINGS_FILE = ".vscode/settings.json"
 
 type WorkspaceInput = Pick<ResolvedWorkspace, "root" | "config" | "topology" | "diagnostics">
 export interface EditorFolder {
@@ -115,15 +116,47 @@ export async function planEditorWorkspace(workspace: WorkspaceInput): Promise<Ed
         plan.skipped.push({ repository: candidate.id, reason: "covered", path: candidate.path })
       } else selected.push(candidate)
     }
-    const desired = selected
-      .sort((a, b) => a.id.localeCompare(b.id))
-      .map(({ id, path }) => ({
-        name: id,
-        path: portablePath(workspace.root, path),
-      }))
+    // Init previews may refer to a coordination directory that does not exist yet.
+    const rootPhysical = await realpath(workspace.root).catch((error) => {
+      if (isNodeError(error) && error.code === "ENOENT") return resolve(workspace.root)
+      throw error
+    })
+    const rootFolder = {
+      name: `${workspace.config.metadata?.name || basename(workspace.root)} (Workspace)`,
+      path: ".",
+    }
+    // Add the coordination root after repository deduplication so it cannot cover repositories.
+    const desired = [
+      rootFolder,
+      ...selected
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .filter(({ physical }) => physical !== rootPhysical)
+        .map(({ id, path }) => ({
+          name: id,
+          path: portablePath(workspace.root, path),
+        })),
+    ]
     await assertRegularDestination(workspace.root, STATE_FILE)
     await assertRegularDestination(workspace.root, filename)
     await assertRegularDestination(workspace.root, ".gitignore")
+    await assertRegularDestination(workspace.root, ROOT_SETTINGS_FILE)
+    const settingsPath = join(workspace.root, ROOT_SETTINGS_FILE)
+    const settingsBefore = await readTextIfExists(settingsPath)
+    let settings = settingsBefore ?? "{}\n"
+    const settingsDocument = parseObject(settings)
+    const excludes = settingsDocument["files.exclude"]
+    if (excludes !== undefined && !isRecord(excludes))
+      throw new Error("Root files.exclude must be a JSON object")
+    if (excludes === undefined || !Object.hasOwn(excludes, "repos")) {
+      settings = edit(settings, ["files.exclude", "repos"], true)
+    } else if (excludes.repos !== true) {
+      diagnostics.push(
+        diagnostic("ASTR7406", "warning", "Preserved custom root files.exclude.repos setting", {
+          remediation:
+            "Set files.exclude.repos to true in the root .vscode/settings.json to hide the repos directory there.",
+        }),
+      )
+    }
     const statePath = join(workspace.root, STATE_FILE)
     const stateBefore = await readTextIfExists(statePath)
     const state = readState(stateBefore)
@@ -178,8 +211,13 @@ export async function planEditorWorkspace(workspace: WorkspaceInput): Promise<Ed
         )
       )
         continue
-      content = edit(content, ["folders", -1], folder)
-      preserved.push({ ...folder })
+      if (folder === rootFolder) {
+        content = edit(content, ["folders", 0], folder, true)
+        preserved.unshift({ ...folder })
+      } else {
+        content = edit(content, ["folders", -1], folder)
+        preserved.push({ ...folder })
+      }
       owned.push(folder)
     }
     plan.folders = desired
@@ -194,6 +232,7 @@ export async function planEditorWorkspace(workspace: WorkspaceInput): Promise<Ed
     for (const file of [
       { path: ignorePath, before: ignoreBefore, after: ignore },
       { path: plan.workspacePath, before, after: content },
+      { path: settingsPath, before: settingsBefore, after: settings },
       { path: statePath, before: stateBefore, after: `${JSON.stringify(state, null, 2)}\n` },
     ]) {
       // Retain unchanged reads too: they participate in stale-plan detection.
@@ -237,7 +276,7 @@ export async function applyEditorWorkspace(
     lock = await acquireOperationLock(plan.root)
     for (const file of plan.files) {
       const local = relative(plan.root, file.path).split(sep).join("/")
-      if (![".gitignore", STATE_FILE].includes(local) && !FILE_NAME.test(local))
+      if (![".gitignore", STATE_FILE, ROOT_SETTINGS_FILE].includes(local) && !FILE_NAME.test(local))
         throw new Error("Editor plan contains an invalid destination")
       await assertRegularDestination(plan.root, local)
       if ((await readTextIfExists(file.path)) !== file.before) {
@@ -293,10 +332,16 @@ function defaultWorkspaceFile(workspace: WorkspaceInput): string {
   return DEFAULT_WORKSPACE_FILE
 }
 
-function edit(content: string, path: (string | number)[], value: unknown): string {
+function edit(
+  content: string,
+  path: (string | number)[],
+  value: unknown,
+  isArrayInsertion = false,
+): string {
   return applyEdits(
     content,
     modify(content, path, value, {
+      isArrayInsertion,
       formattingOptions: {
         insertSpaces: true,
         tabSize: 2,
@@ -348,16 +393,20 @@ function portablePath(root: string, path: string): string {
   return (isAbsolute(local) ? path : local || ".").split(sep).join("/")
 }
 async function assertStateDirectory(root: string): Promise<void> {
+  await assertDirectory(root, ".astrail")
+}
+async function assertDirectory(root: string, local: string): Promise<void> {
   try {
-    const info = await lstat(join(root, ".astrail"))
+    const info = await lstat(join(root, local))
     if (!info.isDirectory() || info.isSymbolicLink())
-      throw new Error(".astrail must be a real directory")
+      throw new Error(`${local} must be a real directory`)
   } catch (error) {
     if (!isNodeError(error) || error.code !== "ENOENT") throw error
   }
 }
 async function assertRegularDestination(root: string, local: string): Promise<void> {
   if (local === STATE_FILE) await assertStateDirectory(root)
+  if (local === ROOT_SETTINGS_FILE) await assertDirectory(root, ".vscode")
   try {
     const info = await lstat(join(root, local))
     if (!info.isFile() || info.isSymbolicLink())

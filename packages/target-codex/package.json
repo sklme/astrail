@@ -1,6 +1,6 @@
 {
   "name": "astrail-target-codex",
-  "version": "0.13.1",
+  "version": "0.14.0",
   "description": "Codex projection target for Astrail",
   "license": "Apache-2.0",
   "repository": {
@@ -16,7 +16,6 @@
     "dist",
     "!dist/**/*.test.*",
     "!dist/.tsbuildinfo",
-    "skills",
     "README.md"
   ],
   "exports": {
@@ -31,7 +30,8 @@
     "test": "vitest run --root ../.. packages/target-codex"
   },
   "dependencies": {
-    "astrail-core": "workspace:*"
+    "astrail-core": "workspace:*",
+    "astrail-target-shared": "workspace:*"
   },
   "homepage": "https://github.com/sklme/astrail#readme",
   "bugs": {

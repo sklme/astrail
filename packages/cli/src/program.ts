@@ -56,12 +56,6 @@ import {
   validateWorkspace,
   workspaceStatus,
 } from "astrail-core"
-import {
-  doctorCodexProjection,
-  gitCapabilityResolutions,
-  planCodexProjection,
-  syncCodexProjection,
-} from "astrail-target-codex"
 import { Command } from "commander"
 import { stringify } from "yaml"
 import {
@@ -83,6 +77,13 @@ import {
 import { executeWithJournal, renderJournal, renderJournalOperation } from "./journal.js"
 import { isWorkspaceRuntime } from "./local-runtime.js"
 import { CLI_EXIT_CODES, emitResult, type OutputWriter, processWriter, table } from "./output.js"
+import {
+  doctorWorkspaceProjections,
+  type ProjectionHealth,
+  planWorkspaceProjections,
+  syncWorkspaceProjections,
+  workspaceGitResolutions,
+} from "./projections.js"
 import { createTerminalRepositoryPrompter, type RepositoryPrompter } from "./repository-prompt.js"
 import { RuntimeCompatibilityError, requireWorkspaceRuntime } from "./runtime-check.js"
 import {
@@ -112,14 +113,16 @@ interface ContextLoadData {
 }
 
 type CliWorkspaceStatus = Awaited<ReturnType<typeof workspaceStatus>>["data"] & {
-  codex: Awaited<ReturnType<typeof doctorCodexProjection>>["data"]
+  codex: Awaited<ReturnType<typeof doctorWorkspaceProjections>>["data"]["codex"]
+  projections: ProjectionHealth
 }
 
 interface CliDoctorData {
   root: string
   workspace: Awaited<ReturnType<typeof workspaceStatus>>["data"]
   tools: Awaited<ReturnType<typeof doctorWorkspace>>["data"]["tools"]
-  codex: Awaited<ReturnType<typeof doctorCodexProjection>>["data"]
+  codex: Awaited<ReturnType<typeof doctorWorkspaceProjections>>["data"]["codex"]
+  projections: ProjectionHealth
   repositorySkills: RepositorySkillInventory
 }
 
@@ -174,8 +177,9 @@ export function createProgram(
 
   program
     .command("init")
-    .description("create or adopt a minimal Codex-targeted Astrail workspace")
+    .description("create or adopt a minimal Astrail workspace")
     .option("--name <name>", "workspace identifier")
+    .option("--target <target>", "initial agent target: codex or codebuddy (default: codex)")
     .option("--force", "replace an existing minimal manifest")
     .option("--runtime <mode>", "select and persist global or local CLI mode")
     .option("--skip-install", "write workspace files without installing dependencies")
@@ -184,6 +188,7 @@ export function createProgram(
       async (
         options: {
           name?: string
+          target?: "codex" | "codebuddy"
           force?: boolean
           skipInstall?: boolean
           dryRun?: boolean
@@ -237,9 +242,9 @@ export function createProgram(
         async (context) => {
           const base = await workspaceStatus(context)
           await describeRuntime(base.data)
-          const codex = await doctorCodexProjection(base.data)
+          const codex = await doctorWorkspaceProjections(base.data)
           const diagnostics = uniqueDiagnostics([...base.diagnostics, ...codex.diagnostics])
-          return result({ ...base.data, codex: codex.data }, diagnostics)
+          return result({ ...base.data, ...codex.data }, diagnostics)
         },
         renderWorkspaceStatus,
       )
@@ -247,7 +252,7 @@ export function createProgram(
 
   program
     .command("doctor")
-    .description("diagnose workspace, tools, and Codex projection health")
+    .description("diagnose workspace, tools, and target projection health")
     .option("--strict", "escalate warnings to errors")
     .action(async (options: { strict?: boolean }, command: Command) => {
       await execute<CliDoctorData>(
@@ -257,7 +262,7 @@ export function createProgram(
         async (context) => {
           const base = await doctorWorkspace(context)
           await describeRuntime(base.data.workspace)
-          const codex = await doctorCodexProjection(base.data.workspace)
+          const codex = await doctorWorkspaceProjections(base.data.workspace)
           const combined = uniqueDiagnostics([...base.diagnostics, ...codex.diagnostics])
           const diagnostics = options.strict ? escalateWarnings(combined) : combined
           return result(
@@ -265,7 +270,7 @@ export function createProgram(
               root: base.data.workspace.root,
               workspace: { ...base.data.workspace, diagnostics },
               tools: base.data.tools,
-              codex: codex.data,
+              ...codex.data,
               repositorySkills: base.data.repositorySkills,
             },
             diagnostics,
@@ -1485,7 +1490,7 @@ function addCapabilityCommands(program: Command, writer: OutputWriter): void {
 function addProjectionCommands(program: Command, writer: OutputWriter): void {
   program
     .command("render")
-    .description("preview the Codex projection")
+    .description("preview enabled target projections")
     .action(async (_options: unknown, command: Command) => {
       await execute(
         "render",
@@ -1493,7 +1498,7 @@ function addProjectionCommands(program: Command, writer: OutputWriter): void {
         writer,
         async (context) => {
           const workspace = await resolveWorkspace(context)
-          const plan = await planCodexProjection(workspace)
+          const plan = await planWorkspaceProjections(workspace)
           return result(plan, [...workspace.diagnostics, ...plan.diagnostics])
         },
         (plan) => table(plan.changePlan.actions),
@@ -1511,8 +1516,8 @@ function addProjectionCommands(program: Command, writer: OutputWriter): void {
         writer,
         async (context) => {
           const workspace = await resolveWorkspace(context)
-          const plan = await planCodexProjection(workspace)
-          const synced = await syncCodexProjection(plan, {
+          const plan = await planWorkspaceProjections(workspace)
+          const synced = await syncWorkspaceProjections(plan, {
             dryRun: options.dryRun === true,
             authorized: options.yes === true,
           })
@@ -1566,9 +1571,9 @@ function addLifecycleCommands(program: Command, writer: OutputWriter): void {
         writer,
         async (context) => {
           const workspace = await resolveWorkspace(context)
-          const projection = await planCodexProjection(workspace)
+          const projection = await planWorkspaceProjections(workspace)
           const plan = await planLock(workspace, {
-            acquisitions: gitCapabilityResolutions(projection),
+            acquisitions: workspaceGitResolutions(projection),
           })
           const applied = await applyFilePlan(workspace.root, plan, {
             dryRun: options.dryRun === true,
@@ -1853,14 +1858,16 @@ function renderWorkspaceStatus(workspace: CliWorkspaceStatus): string {
         path: capability.path,
       })),
     ),
-    "Codex projection",
-    table([
-      {
-        state: workspace.codex.current ? "current" : "needs-sync",
-        manifest: workspace.codex.manifestPresent,
-        artifacts: workspace.codex.artifacts.length,
-        pending: workspace.codex.pendingActions.length,
-      },
+    ...Object.entries(workspace.projections).flatMap(([target, health]) => [
+      `${target === "codex" ? "Codex" : "CodeBuddy"} projection`,
+      table([
+        {
+          state: health.current ? "current" : "needs-sync",
+          manifest: health.manifestPresent,
+          artifacts: health.artifacts.length,
+          pending: health.pendingActions.length,
+        },
+      ]),
     ]),
   ].join("\n\n")
 }
@@ -1885,8 +1892,16 @@ function renderDoctor(data: CliDoctorData): string {
         environments: data.workspace.environmentStatuses.length,
         capabilities: data.workspace.capabilities.length,
         unimportedSkills: data.repositorySkills.unimported,
-        codex: data.codex.current ? "current" : "needs-sync",
-        pending: data.codex.pendingActions.length,
+        ...Object.fromEntries(
+          Object.entries(data.projections).map(([target, health]) => [
+            target,
+            health.current ? "current" : "needs-sync",
+          ]),
+        ),
+        pending: Object.values(data.projections).reduce(
+          (count, health) => count + health.pendingActions.length,
+          0,
+        ),
       },
     ]),
   ]

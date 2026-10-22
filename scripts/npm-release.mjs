@@ -9,7 +9,9 @@ import { fileURLToPath } from "node:url"
 export const packages = [
   ["astrail-schema", "schema"],
   ["astrail-core", "core"],
+  ["astrail-target-shared", "target-shared"],
   ["astrail-target-codex", "target-codex"],
+  ["astrail-target-codebuddy", "target-codebuddy"],
   ["astrail", "cli"],
   ["astrail-templates", "templates"],
 ]
@@ -269,6 +271,39 @@ function smoke(version) {
     }
   }
   assert(existsSync(join(workspace, "public-release-smoke.code-workspace")))
+  if (compareVersions(version, "0.14.0") >= 0) {
+    const buddy = join(directory, "codebuddy")
+    mkdirSync(buddy)
+    command(
+      process.execPath,
+      [
+        entry,
+        "init",
+        "--name",
+        "buddy-smoke",
+        "--runtime",
+        "global",
+        "--target",
+        "codebuddy",
+        "--skip-install",
+      ],
+      { cwd: buddy, env, stdio: "pipe" },
+    )
+    for (const args of [["install", "--dry-run"], ["install", "--yes"], ["status"], ["doctor"]]) {
+      const result = JSON.parse(
+        command(process.execPath, [entry, "--json", ...args], {
+          cwd: buddy,
+          env,
+          stdio: "pipe",
+          encoding: "utf8",
+        }),
+      )
+      assert.equal(result.success, true, `CodeBuddy: ${args.join(" ")}`)
+      if (args[0] === "status") assert.equal(result.data.projections.codebuddy.current, true)
+    }
+    assert(existsSync(join(buddy, ".codebuddy/rules/astrail/RULE.mdc")))
+    assert(existsSync(join(buddy, ".codebuddy/skills/astrail-inspection/SKILL.md")))
+  }
 }
 
 async function run(version, directory, operation) {

@@ -35,6 +35,7 @@ export interface InitOptions {
   cwd?: string
   config?: string
   name?: string
+  target?: "codex" | "codebuddy"
   force?: boolean
   skipInstall?: boolean
   dryRun?: boolean
@@ -68,6 +69,9 @@ export async function initializeWorkspace(
     runtimeMode: "local",
     installed: false,
     nextSteps: [],
+  }
+  if (options.target !== undefined && !["codex", "codebuddy"].includes(options.target)) {
+    return result(data, [diagnostic("ASTR8107", "error", "Target must be codex or codebuddy")])
   }
   if ((await pathExists(path)) && !options.force) {
     return result(data, [diagnostic("ASTR8001", "error", `Manifest already exists: ${path}`)])
@@ -177,7 +181,13 @@ export async function initializeWorkspace(
     metadata: { name },
     requires: { astrail: requiredRange },
     ...(persistedRuntime ? { runtime: persistedRuntime } : {}),
-    targets: { codex: { type: "codex" as const, primary: true } },
+    targets:
+      options.target === "codebuddy"
+        ? {
+            codex: { type: "codex" as const, disabled: true },
+            codebuddy: { type: "codebuddy" as const, primary: true },
+          }
+        : { codex: { type: "codex" as const, primary: true } },
   }
   const finish = async () => {
     const editor = await syncEditorWorkspace(

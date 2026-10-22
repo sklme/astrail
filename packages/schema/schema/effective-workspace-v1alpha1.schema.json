@@ -649,7 +649,7 @@
           "type": "boolean"
         },
         "type": {
-          "enum": ["codex"]
+          "enum": ["codex", "codebuddy"]
         },
         "primary": {
           "type": "boolean"

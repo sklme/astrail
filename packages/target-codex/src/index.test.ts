@@ -102,9 +102,9 @@ metadata:
 capabilities:
   logs:
     kind: skill
-    identity: example/loghelper
+    identity: company/svrlog
     version: 2.1.0
-    exposeAs: loghelper
+    exposeAs: svrlog
     source:
       type: workspace
       path: skills/log
@@ -117,7 +117,7 @@ capabilities:
     const agents = await readFile(join(root, "AGENTS.md"), "utf8")
     expect(agents).toContain("astrail context list --json")
     expect(agents).not.toContain("context explain")
-    expect(await readFile(join(root, ".agents", "skills", "loghelper", "SKILL.md"), "utf8")).toBe(
+    expect(await readFile(join(root, ".agents", "skills", "svrlog", "SKILL.md"), "utf8")).toBe(
       "# Log",
     )
     const editorSkill = await readFile(
@@ -125,7 +125,10 @@ capabilities:
       "utf8",
     )
     expect(editorSkill).toBe(
-      await readFile(new URL("../skills/astrail-editor/SKILL.md", import.meta.url), "utf8"),
+      await readFile(
+        new URL("../../target-shared/skills/astrail-editor/SKILL.md", import.meta.url),
+        "utf8",
+      ),
     )
     expect(agents).toContain("$astrail-editor")
     expect(healthEditorEntry(plan.artifacts)).toMatchObject({
@@ -454,8 +457,8 @@ capabilities:
         requiresAuthorization: true,
         details: expect.objectContaining({
           remote: source.repository,
-          path: "skills/loghelper",
-          alias: "loghelper",
+          path: "skills/svrlog",
+          alias: "svrlog",
         }),
       }),
     )
@@ -463,20 +466,20 @@ capabilities:
     const refused = await syncCodexProjection(plan)
     expect(refused.success).toBe(false)
     expect(refused.diagnostics.some((item) => item.code === "ASTR5011")).toBe(true)
-    expect(await readFile(join(source.repository, "skills", "loghelper", "SKILL.md"), "utf8")).toBe(
+    expect(await readFile(join(source.repository, "skills", "svrlog", "SKILL.md"), "utf8")).toBe(
       "# Remote Skill\n",
     )
 
     const synced = await syncCodexProjection(plan, { authorized: true, temporaryRoot })
     expect(synced.success).toBe(true)
-    expect(await readFile(join(root, ".agents", "skills", "loghelper", "SKILL.md"), "utf8")).toBe(
+    expect(await readFile(join(root, ".agents", "skills", "svrlog", "SKILL.md"), "utf8")).toBe(
       "# Remote Skill\n",
     )
     expect(await readdir(temporaryRoot)).toEqual([])
     expect(await readdir(join(root, ".astrail"))).not.toContain("cache")
     expect(gitCapabilityResolutions(synced.data)).toEqual([
       expect.objectContaining({
-        capabilityId: "loghelper",
+        capabilityId: "svrlog",
         resolvedCommit: source.commit,
         integrity: expect.stringMatching(/^sha256-/),
       }),
@@ -485,14 +488,14 @@ capabilities:
       await readFile(join(root, ".astrail", "projection-manifest.json"), "utf8"),
     ) as { artifacts: Array<{ identity: string; acquisition?: { resolvedCommit?: string } }> }
     expect(
-      manifest.artifacts.find((artifact) => artifact.identity === "example/loghelper")?.acquisition,
+      manifest.artifacts.find((artifact) => artifact.identity === "example/svrlog")?.acquisition,
     ).toMatchObject({ resolvedCommit: source.commit })
 
     const second = await planCodexProjection(workspace)
     expect(second.changePlan.actions).toEqual([])
 
-    await rm(join(source.repository, "skills", "loghelper", "SKILL.md"))
-    await writeFile(join(source.repository, "skills", "loghelper", "README.md"), "invalid\n")
+    await rm(join(source.repository, "skills", "svrlog", "SKILL.md"))
+    await writeFile(join(source.repository, "skills", "svrlog", "README.md"), "invalid\n")
     expect((await runProcess("git", ["-C", source.repository, "add", "."])).exitCode).toBe(0)
     expect(
       (
@@ -519,7 +522,7 @@ capabilities:
       expect.objectContaining({ type: "acquire" }),
     )
     expect(changedRequest.diagnostics.some((item) => item.code === "ASTR5027")).toBe(true)
-    expect(await readFile(join(root, ".agents", "skills", "loghelper", "SKILL.md"), "utf8")).toBe(
+    expect(await readFile(join(root, ".agents", "skills", "svrlog", "SKILL.md"), "utf8")).toBe(
       "# Remote Skill\n",
     )
     const failed = await syncCodexProjection(await planCodexProjection(invalidWorkspace), {
@@ -528,7 +531,7 @@ capabilities:
     })
     expect(failed.success).toBe(false)
     expect(failed.diagnostics.some((item) => item.code === "ASTR5013")).toBe(true)
-    expect(await readFile(join(root, ".agents", "skills", "loghelper", "SKILL.md"), "utf8")).toBe(
+    expect(await readFile(join(root, ".agents", "skills", "svrlog", "SKILL.md"), "utf8")).toBe(
       "# Remote Skill\n",
     )
     expect(await readdir(temporaryRoot)).toEqual([])
@@ -538,8 +541,8 @@ capabilities:
     const root = await mkdtemp(join(tmpdir(), "astrail-codex-git-unowned-"))
     const source = await gitSkillSource("# Remote Skill\n")
     await writeGitSkillWorkspace(root, source.repository, source.commit)
-    await mkdir(join(root, ".agents", "skills", "loghelper"), { recursive: true })
-    await writeFile(join(root, ".agents", "skills", "loghelper", "SKILL.md"), "# User Skill\n")
+    await mkdir(join(root, ".agents", "skills", "svrlog"), { recursive: true })
+    await writeFile(join(root, ".agents", "skills", "svrlog", "SKILL.md"), "# User Skill\n")
 
     const workspace = await resolveWorkspace({ cwd: root })
     const synced = await syncCodexProjection(await planCodexProjection(workspace), {
@@ -548,7 +551,7 @@ capabilities:
     })
     expect(synced.success).toBe(false)
     expect(synced.diagnostics.some((item) => item.code === "ASTR5010")).toBe(true)
-    expect(await readFile(join(root, ".agents", "skills", "loghelper", "SKILL.md"), "utf8")).toBe(
+    expect(await readFile(join(root, ".agents", "skills", "svrlog", "SKILL.md"), "utf8")).toBe(
       "# User Skill\n",
     )
   })
@@ -612,8 +615,8 @@ capabilities:
 
 async function gitSkillSource(content: string): Promise<{ repository: string; commit: string }> {
   const repository = await mkdtemp(join(tmpdir(), "astrail-codex-git-source-"))
-  await mkdir(join(repository, "skills", "loghelper"), { recursive: true })
-  await writeFile(join(repository, "skills", "loghelper", "SKILL.md"), content)
+  await mkdir(join(repository, "skills", "svrlog"), { recursive: true })
+  await writeFile(join(repository, "skills", "svrlog", "SKILL.md"), content)
   expect((await runProcess("git", ["init", repository])).exitCode).toBe(0)
   expect((await runProcess("git", ["-C", repository, "add", "."])).exitCode).toBe(0)
   expect(
@@ -647,17 +650,17 @@ kind: Workspace
 metadata:
   name: git-skill
 capabilities:
-  loghelper:
+  svrlog:
     kind: skill
-    identity: example/loghelper
+    identity: example/svrlog
     version: 1.0.0
-    exposeAs: loghelper
+    exposeAs: svrlog
     source:
       type: git
       url: ${JSON.stringify(repository)}
       revision:
         commit: ${JSON.stringify(commit)}
-      path: skills/loghelper
+      path: skills/svrlog
     trust:
       instructions: trusted
 `,

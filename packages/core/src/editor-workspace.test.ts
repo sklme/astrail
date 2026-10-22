@@ -149,6 +149,7 @@ describe("editor workspace", () => {
     )
     const plan = await planEditorWorkspace(await resolveWorkspace({ cwd: root }))
     expect(plan.folders).toEqual([
+      { name: "editor (Workspace)", path: "." },
       { name: "alias", path: "code" },
       { name: "git", path: "repos/git" },
     ])
@@ -185,7 +186,10 @@ describe("editor workspace", () => {
     const text = await readFile(path, "utf8")
     expect(text).toContain("// user comment")
     expect(parse(text)).toEqual({
-      folders: [{ name: "Notes", path: "notes" }],
+      folders: [
+        { name: "editor (Workspace)", path: "." },
+        { name: "Notes", path: "notes" },
+      ],
       settings: { "editor.fontSize": 16 },
       tasks: { version: "2.0.0", tasks: [] },
       launch: { configurations: [] },
@@ -200,6 +204,7 @@ describe("editor workspace", () => {
     await writeFile(join(root, "astrail.yaml"), stringify({ ...config, repositories: {} }))
     await syncEditorWorkspace(await resolveWorkspace({ cwd: root }))
     expect(parse(await readFile(path, "utf8")).folders).toEqual([
+      { name: "editor (Workspace)", path: "." },
       { name: "Personal", path: "code" },
     ])
     await writeFile(
@@ -219,6 +224,7 @@ describe("editor workspace", () => {
     )
     await syncEditorWorkspace(await resolveWorkspace({ cwd: root }))
     expect(parse(await readFile(newPath, "utf8")).folders).toEqual([
+      { name: "editor (Workspace)", path: "." },
       { name: "Renamed", path: "code" },
     ])
     expect(await pathExists(path)).toBe(true)
@@ -226,6 +232,84 @@ describe("editor workspace", () => {
       "/team workspace.code-workspace",
     )
   })
+
+  it("adds the root first, preserves root settings JSONC and is idempotent", async () => {
+    const { root } = await fixture()
+    await mkdir(join(root, ".vscode"))
+    const settingsPath = join(root, ".vscode/settings.json")
+    await writeFile(
+      settingsPath,
+      '{\n // personal settings\n "editor.fontSize": 18,\n "files.exclude": {"build": true},\n}\n',
+    )
+    const workspace = await resolveWorkspace({ cwd: root })
+    const preview = await planEditorWorkspace(workspace)
+    expect(preview.actions.some((action) => action.target === settingsPath)).toBe(true)
+    expect((await applyEditorWorkspace(preview)).success).toBe(true)
+    expect(parse(await readFile(preview.workspacePath, "utf8")).folders).toEqual([
+      { name: "editor (Workspace)", path: "." },
+      { name: "platform", path: "code" },
+    ])
+    const settings = await readFile(settingsPath, "utf8")
+    expect(settings).toContain("// personal settings")
+    expect(parse(settings)).toEqual({
+      "editor.fontSize": 18,
+      "files.exclude": { build: true, repos: true },
+    })
+    expect(parse(await readFile(preview.workspacePath, "utf8")).settings).toBeUndefined()
+    expect((await syncEditorWorkspace(workspace)).data.changed).toBe(false)
+  })
+
+  it("reuses an existing root with its name and position without adopting it", async () => {
+    const { root } = await fixture()
+    const path = join(root, "editor.code-workspace")
+    await writeFile(
+      path,
+      JSON.stringify({ folders: [{ path: "notes" }, { name: "Mine", path: root }] }),
+    )
+    expect((await syncEditorWorkspace(await resolveWorkspace({ cwd: root }))).success).toBe(true)
+    const folders = parse(await readFile(path, "utf8")).folders
+    expect(folders.slice(0, 2)).toEqual([{ path: "notes" }, { name: "Mine", path: root }])
+    expect(folders).toHaveLength(3)
+    expect(
+      parse(await readFile(join(root, ".astrail/editor-workspace.json"), "utf8")).files[
+        "editor.code-workspace"
+      ],
+    ).toEqual([{ name: "platform", path: "code" }])
+  })
+
+  it("preserves explicit exclude overrides and detects stale settings before any writes", async () => {
+    const { root } = await fixture()
+    await mkdir(join(root, ".vscode"))
+    const path = join(root, ".vscode/settings.json")
+    const before = '{"files.exclude":{"repos":false}}'
+    await writeFile(path, before)
+    const workspace = await resolveWorkspace({ cwd: root })
+    const plan = await planEditorWorkspace(workspace)
+    expect(plan.diagnostics.some((d) => d.code === "ASTR7406")).toBe(true)
+    await writeFile(path, '{"editor.fontSize":20}')
+    expect((await applyEditorWorkspace(plan)).diagnostics.some((d) => d.code === "ASTR7404")).toBe(
+      true,
+    )
+    expect(await pathExists(plan.workspacePath)).toBe(false)
+    expect(await pathExists(join(root, ".gitignore"))).toBe(false)
+    await writeFile(path, before)
+    expect((await syncEditorWorkspace(workspace)).success).toBe(true)
+    expect(await readFile(path, "utf8")).toBe(before)
+  })
+
+  it.each(["{ broken", '{"files.exclude":false}'])(
+    "refuses invalid root settings %s without writing",
+    async (content) => {
+      const { root } = await fixture()
+      await mkdir(join(root, ".vscode"))
+      await writeFile(join(root, ".vscode/settings.json"), content)
+      const result = await syncEditorWorkspace(await resolveWorkspace({ cwd: root }))
+      expect(result.success).toBe(false)
+      expect(result.data.changed).toBe(false)
+      expect(await pathExists(result.data.workspacePath)).toBe(false)
+      expect(await pathExists(join(root, ".astrail"))).toBe(false)
+    },
+  )
 
   it("refuses stale plans and malformed JSONC without changing files", async () => {
     const { root } = await fixture()
@@ -261,7 +345,7 @@ describe("editor workspace", () => {
     const content = await readFile(plan.workspacePath, "utf8")
     expect(content).toContain("// personal settings")
     expect(parse(content)).toEqual({
-      folders: [{ path: "notes" }],
+      folders: [{ name: "editor (Workspace)", path: "." }, { path: "notes" }],
       settings: { "editor.fontSize": 18 },
       tasks: { tasks: [] },
       launch: { configurations: [] },
@@ -291,18 +375,20 @@ describe("editor workspace", () => {
     expect(await pathExists(plan.workspacePath)).toBe(false)
   })
 
-  it.each(["editor.code-workspace", ".gitignore", ".astrail"])(
+  it.each(["editor.code-workspace", ".gitignore", ".astrail", ".vscode", ".vscode/settings.json"])(
     "refuses symlink destination %s",
     async (name) => {
       const { root } = await fixture()
       const outside = await mkdtemp(join(tmpdir(), "astrail-editor-outside-"))
-      const target = name === ".astrail" ? outside : join(outside, "file")
-      if (name !== ".astrail") await writeFile(target, "{}")
+      const directory = [".astrail", ".vscode"].includes(name)
+      const target = directory ? outside : join(outside, "file")
+      if (name === ".vscode/settings.json") await mkdir(join(root, ".vscode"))
+      if (!directory) await writeFile(target, "{}")
       await symlink(target, join(root, name))
       const synced = await syncEditorWorkspace(await resolveWorkspace({ cwd: root }))
       expect(synced.success).toBe(false)
       expect(synced.data.changed).toBe(false)
-      if (name !== ".astrail") expect(await readFile(target, "utf8")).toBe("{}")
+      if (!directory) expect(await readFile(target, "utf8")).toBe("{}")
     },
   )
 })

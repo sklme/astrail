@@ -9,7 +9,7 @@ Use Astrail's structured inspection commands as the source of truth instead of r
 
 ## Choose the inspection
 
-- Run `astrail --json status` for current facts: repositories, declared environments, configured checkout observations, capabilities, diagnostics, and Codex projection state.
+- Run `astrail --json status` for current facts: repositories, declared environments, configured checkout observations, capabilities, diagnostics, and enabled target projection state.
 - Run `astrail --json doctor` when the user asks whether the Workspace is healthy or why setup, runtime, checkout, capability, or projection state is inconsistent.
 - Run `astrail --json doctor --strict` only when the user or CI requires warnings to fail health checks. Strict mode promotes warnings to errors; it does not perform repairs.
 
@@ -17,14 +17,14 @@ Use the Workspace root as the working directory. If operating from a child path,
 
 ## Interpret the result
 
-Read the structured envelope's `success`, `data`, `diagnostics`, and `meta.workspaceRoot` fields together.
+Read the structured envelope's `success`, `data`, `diagnostics`, and `meta.workspaceRoot` fields together. The `data.projections` map contains enabled targets (`codex` and/or `codebuddy`); `data.codex` remains a compatibility field for older consumers.
 
-- Status is factual. An environment with `configured: false` can be a normal resource-only environment. Inspect `environmentStatuses` and `data.codex.current` rather than assuming every pending state is an error.
+- Status is factual. An environment with `configured: false` can be a normal resource-only environment. Inspect `environmentStatuses` and `data.projections.<target>.current` rather than assuming every pending state is an error.
 - Doctor is diagnostic. Report each diagnostic's severity, code, attribution details, and remediation. Do not hide warnings merely because the command succeeded.
 - `data.repositorySkills` reports discovered, imported, unimported, importable, and temporarily unavailable repository Skill state. Treat `ASTR6004` as an informational capability-inventory finding: present candidate repository/path/trust/conflict details, but do not import or synchronize without a separate user request and reviewed plan.
-- `data.configs` lists resolved shared config sources, cached files, integrity, Git commits, and setup declarations. `data.configSetups` resolves setup Skill identities and aliases; prepared resources appear in `data.codex.artifacts` under `.astrail/setups/`, outside the daily Skill list. A pending/available entry is an Agent handoff, not proof of completed setup or authentication.
+- `data.configs` lists resolved shared config sources, cached files, integrity, Git commits, and setup declarations. `data.configSetups` resolves setup Skill identities and aliases; prepared resources appear in `data.projections.<target>.artifacts` under `.astrail/setups/`, outside the daily Skill list. A pending/available entry is an Agent handoff, not proof of completed setup or authentication.
 - Workspace initialization includes setup. When carrying out initialization, continue after install by reading the available absolute `SKILL.md` paths in output order and completing their instructions within the same request; do not ask for a separate setup request. Check existing configuration first and report missing login, credentials, or prerequisites as unfinished initialization. Inspection, dependency updates or ordinary synchronization alone does not request setup execution.
-- `data.codex.pendingActions` describes what a later synchronization would change. It is a preview of drift, not authorization to apply it.
+- `data.projections.<target>.pendingActions` describes what a later synchronization would change. It is a preview of drift, not authorization to apply it.
 
 Install automatically maintains the lock and projections; update refreshes remote dependencies. A current projection means local consistency, not that remote sources were checked. Use read-only inspection to explain drift, and preview the user-requested install or update separately.
 

@@ -1,5 +1,17 @@
 # astrail-core
 
+## 0.14.0
+
+### Minor Changes
+
+- Support CodeBuddy IDE as an optional projection target alongside Codex, including initialization, workspace rules, Skills, target health, shared Git acquisition and setup resources, and transaction rollback. Retain the existing Codex API and ownership manifest; package the projection engine and built-in Skills once for both adapters.
+
+### Patch Changes
+
+- Include the coordination root alongside business repositories in generated editor workspaces. Add a folder-scoped repos exclusion while preserving existing JSONC settings and user overrides.
+- Updated dependencies
+  - astrail-schema@0.14.0
+
 ## 0.13.1
 
 ### Patch Changes

@@ -195,6 +195,7 @@ describe("editor CLI", () => {
     )
     const preview = await run(root, ["repo", "add", "--input", input, "--dry-run"])
     expect(preview.data.editorWorkspace.plan.folders).toEqual([
+      { name: "editor (Workspace)", path: "." },
       { name: "other", path: "other" },
       { name: "web", path: "code" },
     ])
@@ -263,7 +264,10 @@ describe("editor CLI", () => {
       reason: "missing",
     })
     expect(added.data.editorWorkspace.synchronized).toBe(true)
-    expect(added.data.editorWorkspace.plan.folders).toEqual([{ name: "web", path: "code" }])
+    expect(added.data.editorWorkspace.plan.folders).toEqual([
+      { name: "editor (Workspace)", path: "." },
+      { name: "web", path: "code" },
+    ])
   })
 })
 

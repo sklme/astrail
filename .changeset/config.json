@@ -9,7 +9,9 @@
       "astrail-schema",
       "astrail-target-codex",
       "astrail-testing",
-      "astrail-templates"
+      "astrail-templates",
+      "astrail-target-shared",
+      "astrail-target-codebuddy"
     ]
   ],
   "linked": [],

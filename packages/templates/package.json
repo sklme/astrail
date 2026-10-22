@@ -1,6 +1,6 @@
 {
   "name": "astrail-templates",
-  "version": "0.13.1",
+  "version": "0.14.0",
   "description": "Versioned official Astrail workspace templates",
   "license": "Apache-2.0",
   "type": "module",
@@ -23,11 +23,6 @@
   "homepage": "https://github.com/sklme/astrail#readme",
   "bugs": {
     "url": "https://github.com/sklme/astrail/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/sklme/astrail.git",
-    "directory": "packages/templates"
   },
   "publishConfig": {
     "access": "public",

@@ -1,0 +1,44 @@
+{
+  "name": "astrail-target-codebuddy",
+  "version": "0.14.0",
+  "description": "CodeBuddy IDE projection target for Astrail",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sklme/astrail.git",
+    "directory": "packages/target-codebuddy"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.test.*",
+    "!dist/.tsbuildinfo",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest run --root ../.. packages/target-codebuddy"
+  },
+  "dependencies": {
+    "astrail-core": "workspace:*",
+    "astrail-target-shared": "workspace:*"
+  },
+  "homepage": "https://github.com/sklme/astrail#readme",
+  "bugs": {
+    "url": "https://github.com/sklme/astrail/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

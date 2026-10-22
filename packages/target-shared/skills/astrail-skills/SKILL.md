@@ -13,7 +13,7 @@ Translate the user's Skill intent into Astrail's machine-readable authoring requ
 2. Prepare one JSON request using a temporary file or stdin. Supported sources are:
 
 ```json
-{"identity":"example/loghelper","source":{"type":"git","url":"https://example.com/team-skills.git","revision":{"tag":"v1.2.0"},"path":"skills/loghelper"}}
+{"identity":"company/svrlog","source":{"type":"git","url":"https://example.com/team-skills.git","revision":{"tag":"v1.2.0"},"path":"skills/svrlog"}}
 {"identity":"company/guide","source":{"type":"workspace","path":"skills/guide"}}
 {"identity":"company/api","source":{"type":"repository","repository":"platform","path":"skills/api"}}
 ```

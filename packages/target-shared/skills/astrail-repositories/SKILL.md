@@ -49,7 +49,7 @@ dry-run even when its text is still a clearly labelled proposal.
    counts. Do not discard candidate paths, conflicts, or trust state when presenting the result.
 10. If importable Skills exist, proactively offer selective import in the same conversation; do not
     wait for the user to initiate another task. Show the candidates and let the user choose or skip.
-    Use `$astrail-skills` to refresh discovery, build an explicit selection file, preview
+    Use `astrail-skills` to refresh discovery, build an explicit selection file, preview
     `astrail --json skill import --input <selection-file> --dry-run`, and apply the authorized import
     plan. Never infer instruction trust from permission to clone. After import, preview install
     separately when requested. If no Skills are available, finish without an import question.
@@ -63,7 +63,7 @@ Never add `--yes` before the user confirms the current dry-run. If the plan ID b
 now offers Skill selection by default after preparation, with an option to skip. Do not use it with `--json` or `--input`;
 Agent workflows must preserve machine-readable selection, plan-ID review, and separate import authorization.
 
-Environment configuration is optional. After adding a repository, mention `$astrail-environments` when the user wants several repositories to share one environment branch; do not create or change an environment automatically.
+Environment configuration is optional. After adding a repository, mention `astrail-environments` when the user wants several repositories to share one environment branch; do not create or change an environment automatically.
 
 ## Preparation and retries
 
