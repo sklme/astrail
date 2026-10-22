@@ -6,10 +6,35 @@ import {
   checkManifest,
   checkPublishedArtifact,
   compareVersions,
+  metadata,
   parseVersion,
   promotion,
   verifyPackage,
 } from "./npm-release.mjs"
+
+test("registry metadata accepts a withdrawn first stage without masking errors", async () => {
+  const name = "astrail-target-shared"
+  const withdrawn = {
+    name,
+    time: { unpublished: { versions: ["0.0.0-stage"] } },
+  }
+  assert.deepEqual(
+    await metadata(name, async () => ({ status: 200, json: async () => withdrawn })),
+    { ...withdrawn, versions: {}, "dist-tags": {} },
+  )
+  const published = { name, versions: { "0.14.0": { dist: { integrity: "exact" } } } }
+  assert.equal(
+    await metadata(name, async () => ({ status: 200, json: async () => published })),
+    published,
+  )
+  for (const document of [{ name }, { ...withdrawn, name: "other-package" }]) {
+    await assert.rejects(metadata(name, async () => ({ status: 200, json: async () => document })))
+  }
+  await assert.rejects(
+    metadata(name, async () => ({ status: 401 })),
+    /Registry returned 401/,
+  )
+})
 
 test("stable and prerelease promotion cannot roll an existing tag backward", () => {
   assert.deepEqual(promotion("0.9.2", { latest: "0.9.1" }), { tag: "latest", update: true })

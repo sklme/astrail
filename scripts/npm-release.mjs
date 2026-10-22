@@ -140,14 +140,22 @@ async function prepare(version, directory, operation) {
   save(join(directory, "manifest.json"), release)
 }
 
-async function metadata(name) {
-  const response = await fetch(`${registry}${name}`, {
+export async function metadata(name, download = fetch) {
+  const response = await download(`${registry}${name}`, {
     headers: { "Cache-Control": "no-cache" },
     signal: AbortSignal.timeout(30000),
   })
   if (response.status === 404) return { versions: {}, "dist-tags": {} }
   assert.equal(response.status, 200, `Registry returned ${response.status} for ${name}`)
-  return response.json()
+  const document = await response.json()
+  assert.equal(document.name, name, "Registry package identity differs")
+  // Rejecting a new package's staged upload removes its placeholder version.
+  // npm retains the package identity and unpublished history without versions.
+  if (!document.versions) {
+    assert(document.time?.unpublished, "Registry package has no version history")
+    return { ...document, versions: {}, "dist-tags": {} }
+  }
+  return document
 }
 
 export async function verifyPackage(item, version, dependencies = {}) {
