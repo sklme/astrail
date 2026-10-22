@@ -151,7 +151,7 @@ describe("editor CLI", () => {
     expect(init.data.editorWorkspace.workspacePath).toBe(
       join(root, `${basename(root).toLowerCase()}.code-workspace`),
     )
-    expect(init.data.nextSteps[0].operation).toBe("open")
+    expect(init.data.nextSteps).toContainEqual(expect.objectContaining({ operation: "open" }))
     await mkdir(join(root, "source"))
     await writeFile(
       join(root, "astrail.yaml"),

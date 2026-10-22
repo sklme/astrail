@@ -1,6 +1,6 @@
 ---
 name: astrail-skills
-description: Discover Skills in declared repositories and selectively import them, or add direct Git, Workspace-relative, and repository-owned Skills through reviewed Astrail plans. Use when a user asks to find, reuse, add, install, register, link, or configure Agent Skills.
+description: Discover Skills in declared repositories and selectively import them, or add direct Git, Workspace-relative, and repository-owned Skills through reviewed Astrail plans. Use when a user asks to find, reuse, add, install, update, register, link, or configure Agent Skills.
 ---
 
 # Astrail Skills
@@ -61,6 +61,10 @@ When the user asks what Skills exist in child repositories or wants to reuse rep
 
 Do not patch `astrail.yaml` directly, persist discovery output, import every candidate by default, or turn a business repository into a Skill package. If candidates or their `SKILL.md` files change, discard the stale plan and discover again.
 
-## Installation
+## Installation and updates
 
-Treat acquisition and projection as a separate action. Only when the user explicitly asks to install or synchronize the Skill, run `astrail --json sync --dry-run`, present its network and file actions, and obtain a separate authorization before `astrail --json sync --yes`.
+Declaration and installation remain distinct operations. When installation is within the user's request, preview `astrail --json install --dry-run`, review its workspace-wide resource and file actions, and apply the authorized scope with `astrail --json install --yes`. Reuse existing authorization when it covers the displayed actions. Install obtains missing resources, preserves matching locked revisions, synchronizes projections and maintains `astrail.lock.yaml`; do not append separate sync or lock commands.
+
+For an explicit dependency upgrade, preview `astrail --json update --dry-run` and apply the authorized update with `astrail --json update --yes`. Update checks remote shared configs and moving Git Skill branches. Fixed tags/commits remain fixed; it does not pull or switch existing business repositories. Dry-run is offline and lists sources to check, not verified remote revisions. Read the applied diagnostics and resolved commits before reporting success. On a failed update, inspect rollback and retained repository changes before retrying; do not manually delete caches or lock constraints.
+
+For a new Workspace, use init to create the definition and install to prepare resources. Bootstrap, sync and lock are compatibility commands, not additional steps in the normal workflow.

@@ -19,7 +19,7 @@ const explanations: Record<string, [message: string, remediation: string]> = {
   ],
   ASTR1102: [
     "A shared config is unavailable.",
-    "Check local config paths, or review bootstrap to acquire missing remote configs.",
+    "Check local config paths, or review install to acquire missing remote configs.",
   ],
   ASTR1105: [
     "Shared config references contain a cycle.",
@@ -47,7 +47,7 @@ const explanations: Record<string, [message: string, remediation: string]> = {
   ],
   ASTR1104: [
     "Shared config integrity does not match the expected digest.",
-    "Review the config source and lock before retrying bootstrap.",
+    "Review the config source and lock before retrying install.",
   ],
   ASTR5001: [
     "Codex projection could not be planned.",
@@ -71,7 +71,7 @@ const explanations: Record<string, [message: string, remediation: string]> = {
   ],
   ASTR5011: [
     "Git Skill acquisition requires authorization.",
-    "Review astrail sync --dry-run before applying with --yes.",
+    "Review astrail install --dry-run before applying with --yes.",
   ],
   ASTR5012: [
     "An acquired Skill does not match locked integrity.",
@@ -83,7 +83,7 @@ const explanations: Record<string, [message: string, remediation: string]> = {
   ],
   ASTR5028: [
     "Shared configs are unavailable for projection.",
-    "Complete bootstrap before syncing projections.",
+    "Complete install before syncing projections.",
   ],
   ASTR5029: [
     "A legacy setup projection was modified.",
@@ -99,15 +99,15 @@ const explanations: Record<string, [message: string, remediation: string]> = {
   ],
   ASTR6103: [
     "Bootstrap requires authorization.",
-    "Review astrail bootstrap --dry-run before applying with --yes.",
+    "Review astrail install --dry-run before applying with --yes.",
   ],
   ASTR6105: [
     "Bootstrap discovered repository Skills that are not imported.",
-    "Review astrail skill discover --all, select Skills to import, then preview astrail sync --dry-run.",
+    "Review astrail skill discover --all, select Skills to import, then preview astrail install --dry-run.",
   ],
   ASTR6106: [
     "Shared config acquisition failed.",
-    "Check source access, ref, config path, YAML, runtime requirement and integrity, then retry bootstrap.",
+    "Check source access, ref, config path, YAML, runtime requirement and integrity, then retry install.",
   ],
   ASTR6107: [
     "Bootstrap exceeded the config acquisition depth limit.",

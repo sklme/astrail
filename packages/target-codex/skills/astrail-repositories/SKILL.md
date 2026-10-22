@@ -51,7 +51,7 @@ dry-run even when its text is still a clearly labelled proposal.
     wait for the user to initiate another task. Show the candidates and let the user choose or skip.
     Use `$astrail-skills` to refresh discovery, build an explicit selection file, preview
     `astrail --json skill import --input <selection-file> --dry-run`, and apply the authorized import
-    plan. Never infer instruction trust from permission to clone. After import, preview synchronization
+    plan. Never infer instruction trust from permission to clone. After import, preview install
     separately when requested. If no Skills are available, finish without an import question.
 11. Report whether the repository is ready, declaration-only, or still awaiting preparation. A skipped
     import does not undo successful repository addition. Unavailable-repository counts are not proof
@@ -68,7 +68,7 @@ Environment configuration is optional. After adding a repository, mention `$astr
 ## Preparation and retries
 
 The reviewed `repo add` plan already includes preparation. Continue through its execution without
-asking for another clone request or confirmation. Do not chain workspace-wide bootstrap or sync;
+asking for another clone request or confirmation. Do not chain workspace-wide install or update;
 they can affect unrelated repositories and artifacts.
 
 To prepare a declaration-only repository later, repeat its addition request without `prepare: false`

@@ -69,6 +69,7 @@ export interface LoadedWorkspace {
   diagnostics: Diagnostic[]
   runtime: AstrailRuntimeCompatibility
   configs: LoadedConfig[]
+  capabilityLocks?: Record<string, unknown>
 }
 
 export type { ConfigSetup } from "astrail-schema"
@@ -161,6 +162,7 @@ export interface ResolvedCapability {
   source: CapabilitySource
   path?: string
   integrity?: string
+  lockedCommit?: string
   active: boolean
 }
 

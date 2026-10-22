@@ -17,6 +17,7 @@ const MUTATIONS = new Set([
   "env checkout",
   "skill add",
   "skill import",
+  "install",
   "bootstrap",
   "sync",
   "editor sync",

@@ -203,7 +203,7 @@ export interface Operations {
 }
 export interface Operation {
   disabled?: boolean;
-  provider?: "validate" | "status" | "doctor" | "render" | "sync" | "bootstrap" | "lock" | "update";
+  provider?: "validate" | "status" | "doctor" | "render" | "install" | "update" | "sync" | "bootstrap" | "lock";
   sideEffect?: "none" | "workspace-read" | "workspace-write" | "network" | "external-write";
 }
 export interface Policies {

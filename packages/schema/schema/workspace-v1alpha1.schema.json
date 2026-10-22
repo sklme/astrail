@@ -581,7 +581,17 @@
           "type": "boolean"
         },
         "provider": {
-          "enum": ["validate", "status", "doctor", "render", "sync", "bootstrap", "lock", "update"]
+          "enum": [
+            "validate",
+            "status",
+            "doctor",
+            "render",
+            "install",
+            "update",
+            "sync",
+            "bootstrap",
+            "lock"
+          ]
         },
         "sideEffect": {
           "enum": ["none", "workspace-read", "workspace-write", "network", "external-write"]

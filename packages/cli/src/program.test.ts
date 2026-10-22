@@ -38,6 +38,14 @@ describe("CLI", () => {
     )
     const envelope = JSON.parse(stdout.join("")) as Record<string, unknown>
     expect(envelope).toMatchObject({ schemaVersion: "1", command: "init", success: true })
+    expect(envelope.data).toMatchObject({
+      nextSteps: expect.arrayContaining([
+        expect.objectContaining({
+          operation: "install",
+          command: "astrail --json install --dry-run",
+        }),
+      ]),
+    })
     expect(stderr).toEqual([])
   })
 
@@ -975,7 +983,9 @@ capabilities:
     })
     expect(applied.data.repositorySkills.unavailableRepositories).toEqual(["service"])
     expect(
-      applied.data.nextSteps.some((step: { operation: string }) => step.operation === "bootstrap"),
+      applied.data.nextSteps.some((step: { operation: string }) =>
+        ["install", "bootstrap"].includes(step.operation),
+      ),
     ).toBe(false)
     expect(
       applied.data.nextSteps.some(

@@ -16,14 +16,33 @@ import { runProcess } from "./process.js"
 import { inspectAstrailRequirement } from "./runtime-requirements.js"
 import { type Diagnostic, diagnostic, type LoadedConfig } from "./types.js"
 
+export async function isFixedConfigReference(root: string, config: LoadedConfig): Promise<boolean> {
+  if (config.source.type !== "git" || !config.source.ref) return false
+  const ref = config.source.ref
+  if (/^[0-9a-f]{40,64}$/i.test(ref) || ref.startsWith("refs/tags/")) return true
+  return (
+    (
+      await runProcess("git", [
+        "-C",
+        configCacheRoot(root, config.source),
+        "show-ref",
+        "--verify",
+        "--quiet",
+        `refs/tags/${ref}`,
+      ])
+    ).exitCode === 0
+  )
+}
+
 export async function acquireConfigs(
   root: string,
   configs: LoadedConfig[],
   runtimeVersion: string,
+  options: { refresh?: boolean; lockedCommit?: string } = {},
 ): Promise<Diagnostic[]> {
   return journalStep(
     "config.acquire",
-    () => acquireConfigsObserved(root, configs, runtimeVersion),
+    () => acquireConfigsObserved(root, configs, runtimeVersion, options),
     { target: configs[0]?.key, outcome: (diagnostics) => ({ diagnostics }) },
   )
 }
@@ -32,6 +51,7 @@ async function acquireConfigsObserved(
   root: string,
   configs: LoadedConfig[],
   runtimeVersion: string,
+  options: { refresh?: boolean; lockedCommit?: string },
 ): Promise<Diagnostic[]> {
   const first = configs[0]
   if (!first || first.source.type === "local") return []
@@ -82,7 +102,7 @@ async function acquireConfigsObserved(
       })
     } else {
       const destination = configCacheRoot(root, first.source)
-      if (await pathExists(destination)) return diagnostics
+      if (!options.refresh && (await pathExists(destination))) return diagnostics
       await mkdir(dirname(destination), { recursive: true })
       temporary = await mkdtemp(join(dirname(destination), ".config-"))
       const checkout = join(temporary, "repo")
@@ -92,7 +112,27 @@ async function acquireConfigsObserved(
       if (expectedCommits.size > 1)
         throw new Error("Config locks require different commits for the same checkout")
       await cloneRepository(first.source.url, checkout)
-      const revision = first.expectedCommit ?? [...expectedCommits][0] ?? first.source.ref
+      // Tags and commits remain fixed even when a remote tag is moved. Branches
+      // and an omitted ref are resolved again only during an explicit update.
+      const ref = first.source.ref
+      const isTag = ref
+        ? (
+            await runProcess("git", [
+              "-C",
+              checkout,
+              "show-ref",
+              "--verify",
+              "--quiet",
+              ref.startsWith("refs/tags/") ? ref : `refs/tags/${ref}`,
+            ])
+          ).exitCode === 0
+        : false
+      const fixed = ref && (isTag || /^[0-9a-f]{40,64}$/i.test(ref))
+      const revision =
+        first.expectedCommit ??
+        [...expectedCommits][0] ??
+        (options.refresh && fixed ? (options.lockedCommit ?? first.resolvedCommit) : undefined) ??
+        ref
       if (revision) {
         let resolved = await runProcess("git", [
           "-C",
@@ -168,11 +208,20 @@ async function acquireConfigsObserved(
       }
       for (const config of configs) if (!(await validateTree(config))) return diagnostics
       await journalBeforeMutation()
-      await rename(checkout, destination)
+      const previous = join(temporary, "previous")
+      const replacing = await pathExists(destination)
+      if (replacing) await rename(destination, previous)
+      try {
+        await rename(checkout, destination)
+      } catch (error) {
+        if (replacing) await rename(previous, destination)
+        throw error
+      }
       journalChange({
         kind: "config",
         target: first.key,
-        action: "clone",
+        action: replacing ? "refresh" : "clone",
+        ...(first.resolvedCommit ? { before: { revision: first.resolvedCommit } } : {}),
         after: {
           ...(names.has(first.key) ? { identity: names.get(first.key) ?? first.key } : {}),
           revision: observed.revision ?? null,
@@ -187,7 +236,7 @@ async function acquireConfigsObserved(
         `Config acquisition failed: ${error instanceof Error ? error.message : String(error)}`,
         {
           remediation:
-            "Check the source, ref, config path, YAML, runtime requirement and integrity, then retry bootstrap.",
+            "Check the source, ref, config path, YAML, runtime requirement and integrity, then retry install.",
         },
       ),
     )

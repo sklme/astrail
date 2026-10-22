@@ -23,8 +23,10 @@ Read the structured envelope's `success`, `data`, `diagnostics`, and `meta.works
 - Doctor is diagnostic. Report each diagnostic's severity, code, attribution details, and remediation. Do not hide warnings merely because the command succeeded.
 - `data.repositorySkills` reports discovered, imported, unimported, importable, and temporarily unavailable repository Skill state. Treat `ASTR6004` as an informational capability-inventory finding: present candidate repository/path/trust/conflict details, but do not import or synchronize without a separate user request and reviewed plan.
 - `data.configs` lists resolved shared config sources, cached files, integrity, Git commits, and setup declarations. `data.configSetups` resolves setup Skill identities and aliases; prepared resources appear in `data.codex.artifacts` under `.astrail/setups/`, outside the daily Skill list. A pending/available entry is an Agent handoff, not proof of completed setup or authentication.
-- Workspace initialization includes setup. When carrying out initialization, continue after bootstrap by reading the available absolute `SKILL.md` paths in output order and completing their instructions within the same request; do not ask for a separate setup request. Check existing configuration first and report missing login, credentials, or prerequisites as unfinished initialization. Inspection or ordinary sync alone does not request setup execution.
+- Workspace initialization includes setup. When carrying out initialization, continue after install by reading the available absolute `SKILL.md` paths in output order and completing their instructions within the same request; do not ask for a separate setup request. Check existing configuration first and report missing login, credentials, or prerequisites as unfinished initialization. Inspection, dependency updates or ordinary synchronization alone does not request setup execution.
 - `data.codex.pendingActions` describes what a later synchronization would change. It is a preview of drift, not authorization to apply it.
+
+Install automatically maintains the lock and projections; update refreshes remote dependencies. A current projection means local consistency, not that remote sources were checked. Use read-only inspection to explain drift, and preview the user-requested install or update separately.
 
 ## Trace recent operations
 
@@ -49,4 +51,4 @@ If the Astrail executable or Workspace manifest is unavailable, report that limi
 
 ## Preserve the read-only boundary
 
-Status and doctor do not clone, fetch, switch branches, acquire Skills, synchronize projections, or edit configuration. Do not run `bootstrap`, `env checkout`, `sync`, or authoring commands solely because inspection recommends them. Explain the finding first; any mutation requires a separate user request, reviewed dry-run, and the workflow-specific authorization.
+Status and doctor do not clone, fetch, switch branches, acquire Skills, synchronize projections, or edit configuration. Do not run `install`, `update`, `env checkout`, compatibility commands, or authoring commands solely because inspection recommends them. Explain the finding first; any mutation requires a separate user request, reviewed dry-run, and the workflow-specific authorization.

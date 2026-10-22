@@ -157,7 +157,7 @@ export async function doctorWorkspace(
         `${repositorySkills.unimported} repository Skill${repositorySkills.unimported === 1 ? " is" : "s are"} discoverable but not imported`,
         {
           remediation:
-            "Review astrail skill discover --all, selectively import with astrail skill import, then preview astrail sync --dry-run.",
+            "Review astrail skill discover --all, selectively import with astrail skill import, then preview astrail install --dry-run.",
           details: { repositorySkills },
         },
       ),

@@ -170,7 +170,13 @@ export function parseYamlText(
 }
 
 export async function loadWorkspace(
-  options: { cwd?: string; config?: string; ignoreLock?: boolean; astrailVersion?: string } = {},
+  options: {
+    cwd?: string
+    config?: string
+    ignoreLock?: boolean
+    install?: boolean
+    astrailVersion?: string
+  } = {},
 ): Promise<LoadedWorkspace> {
   const { root, configPath } = await discoverWorkspaceRoot(options.cwd, options.config)
   const shared = await parseYamlFile(configPath, validateWorkspaceSchema)
@@ -235,6 +241,7 @@ export async function loadWorkspace(
     runtime,
     configs,
     lock?.diagnostics.some((item) => item.severity === "error") ? undefined : lock?.value,
+    options.install,
   )
   layers.push(...configLayers)
   layers.push({
@@ -264,13 +271,13 @@ export async function loadWorkspace(
     })
   }
 
-  if (lock) {
+  if (lock && !options.install) {
     layers.push({
       id: "lock",
       kind: "lock",
       order: 40_000,
       source: lockPath,
-      value: lockToConstraints(lock.value),
+      value: lockToConstraints(lock.value, composeLayers(layers).value),
       locations: lock.locations,
     })
   }
@@ -318,6 +325,11 @@ export async function loadWorkspace(
     diagnostics,
     runtime,
     configs,
+    ...(lock &&
+    isRecord(lock.value.capabilities) &&
+    !lock.diagnostics.some((item) => item.severity === "error")
+      ? { capabilityLocks: lock.value.capabilities }
+      : {}),
   }
 }
 
@@ -344,6 +356,7 @@ async function loadConfigLayers(
   runtime: AstrailRuntimeCompatibility,
   configs: LoadedConfig[],
   lock?: Record<string, unknown>,
+  install = false,
 ): Promise<ConfigLayer[]> {
   const layers: ConfigLayer[] = []
   const canonicalRoot = await realpath(root)
@@ -431,7 +444,7 @@ async function loadConfigLayers(
       if (declaredIntegrity) previous.expectedIntegrity = declaredIntegrity
       return
     }
-    const candidateLock = lockedEntries[key]
+    const candidateLock = install && source.type === "local" ? undefined : lockedEntries[key]
     const matchingLock =
       isRecord(candidateLock) &&
       isRecord(candidateLock.source) &&
@@ -476,7 +489,7 @@ async function loadConfigLayers(
             remediation:
               source.type === "local" || acquiredGit
                 ? `Check the config file path: ${manifestPath}`
-                : "Run astrail bootstrap with network authorization to acquire it.",
+                : "Run astrail install with network authorization to acquire it.",
           },
         ),
       )
@@ -660,11 +673,16 @@ function configContributions(value: Record<string, unknown>): Record<string, unk
   return copy
 }
 
-function lockToConstraints(lock: Record<string, unknown>): Record<string, unknown> {
+function lockToConstraints(
+  lock: Record<string, unknown>,
+  declared: Record<string, unknown>,
+): Record<string, unknown> {
   const capabilities: Record<string, unknown> = {}
   if (isRecord(lock.capabilities))
     for (const [id, entry] of Object.entries(lock.capabilities)) {
       if (!isRecord(entry)) continue
+      const declaration = isRecord(declared.capabilities) ? declared.capabilities[id] : undefined
+      if (!isRecord(declaration) || declaration.identity !== entry.identity) continue
       capabilities[id] = {
         ...(typeof entry.version === "string" ? { version: entry.version } : {}),
         ...(typeof entry.integrity === "string" ? { integrity: entry.integrity } : {}),

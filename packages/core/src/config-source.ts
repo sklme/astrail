@@ -128,7 +128,7 @@ export function validateHttpConfigUrl(value: string): URL {
   return url
 }
 
-// No network access occurs during resolution; only authorized bootstrap calls this.
+// No network access occurs during resolution; authorized install/update acquisition calls this.
 export async function downloadHttpConfig(address: string): Promise<string> {
   let url = validateHttpConfigUrl(address)
   const signal = AbortSignal.timeout(15_000)

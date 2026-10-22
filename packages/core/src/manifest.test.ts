@@ -13,6 +13,9 @@ describe("manifest loading", () => {
 kind: Workspace
 metadata:
   name: test
+operations:
+  prepare:
+    provider: install
 repositories:
   api:
     access: read-write
@@ -41,6 +44,7 @@ repositories:
       path: "../api",
     })
     expect(loaded.effective.extensions?.["example.vendor"]).toEqual({ enabled: true })
+    expect(loaded.effective.operations?.prepare?.provider).toBe("install")
     expect(loaded.provenance["/repositories/api/source/path"]?.at(-1)?.location?.line).toBe(6)
   })
 

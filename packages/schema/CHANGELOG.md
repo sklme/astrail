@@ -1,5 +1,11 @@
 # astrail-schema
 
+## 0.13.0
+
+### Minor Changes
+
+- Unify the workspace lifecycle around init, install and update. Install acquires missing resources, restores locked Git commits, synchronizes managed artifacts and automatically maintains the lock. Update refreshes remote configs and moving Git Skills, validates and synchronizes the resulting graph, and preserves the prior working cache, lock and projections if the operation fails. Existing business checkouts are never pulled or switched. Bootstrap remains an install compatibility alias; sync and lock retain their original scoped behavior.
+
 ## 0.12.0
 
 ## 0.11.0

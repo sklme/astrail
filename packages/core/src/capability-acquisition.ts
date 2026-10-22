@@ -47,7 +47,11 @@ async function stageGitCapabilityObserved(
   const checkoutRoot = join(stagingRoot, "checkout")
   try {
     validateRelativeContentPath(capability.source.path)
-    await cloneRepository(capability.source.url, checkoutRoot, capability.source.revision)
+    await cloneRepository(
+      capability.source.url,
+      checkoutRoot,
+      capability.lockedCommit ? { commit: capability.lockedCommit } : capability.source.revision,
+    )
     const selectedPath = await containedRealPath(checkoutRoot, capability.source.path)
     if (capability.kind === "skill" && !(await pathExists(join(selectedPath, "SKILL.md")))) {
       throw new Error(

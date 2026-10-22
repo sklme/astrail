@@ -160,7 +160,7 @@ capabilities:
     expect(skillAuthoringSkill).toContain("Ask the user to choose an explicit subset")
     expect(skillAuthoringSkill).toContain("import every candidate by default")
     expect(skillAuthoringSkill).toContain("Do not patch `astrail.yaml` directly")
-    expect(skillAuthoringSkill).toContain("sync --dry-run")
+    expect(skillAuthoringSkill).toContain("install --dry-run")
     expect(skillAuthoringSkill).toContain("data.repositorySkills.candidates")
     expect(skillAuthoringSkill).toContain("rerun `skill discover`")
     const environmentSkill = await readFile(

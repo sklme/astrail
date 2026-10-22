@@ -221,8 +221,17 @@ function smoke(version) {
   })
   for (const args of [
     ["validate"],
-    ["bootstrap", "--dry-run"],
-    ["bootstrap", "--yes"],
+    ...(compareVersions(version, "0.13.0") >= 0
+      ? [
+          ["install", "--dry-run"],
+          ["install", "--yes"],
+          ["update", "--dry-run"],
+          ["update", "--yes"],
+        ]
+      : [
+          ["bootstrap", "--dry-run"],
+          ["bootstrap", "--yes"],
+        ]),
     ["status"],
   ]) {
     const result = JSON.parse(

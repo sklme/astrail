@@ -165,7 +165,7 @@ describe("Config setup bootstrap handoff", () => {
     expect(await pathExists(join(root, ".agents", "skills", "deploy-setup"))).toBe(false)
     expect(await pathExists(join(root, "SETUP-RAN"))).toBe(false)
     const human = await command(root, ["bootstrap", "--yes"], false)
-    expect(human.text).toContain("not executed by bootstrap")
+    expect(human.text).toContain("not executed by the CLI")
     expect(human.text).toContain(skillPath)
     expect(human.text).toContain("unfinished initialization")
     expect(hits).toBe(2)

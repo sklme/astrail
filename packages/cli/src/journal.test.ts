@@ -405,7 +405,8 @@ describe("journal CLI", () => {
     }
     const operations = (await cli<JournalListData>(root, ["journal", "list"])).result.data
       .operations
-    expect(operations).toHaveLength(5)
+    // Bootstrap now writes the lock; the following explicit lock is a no-op.
+    expect(operations).toHaveLength(4)
     expect(operations.find((operation) => operation.command === "skill.add")?.skills).toEqual([
       "example",
     ])

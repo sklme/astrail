@@ -20,6 +20,7 @@ export async function resolveWorkspace(
     config?: string
     observe?: boolean
     ignoreLock?: boolean
+    install?: boolean
     astrailVersion?: string
   } = {},
 ): Promise<ResolvedWorkspace> {
@@ -32,6 +33,7 @@ async function resolveWorkspaceObserved(
     config?: string
     observe?: boolean
     ignoreLock?: boolean
+    install?: boolean
     astrailVersion?: string
   } = {},
 ): Promise<ResolvedWorkspace> {
@@ -66,6 +68,35 @@ async function resolveWorkspaceObserved(
     ),
   )
   diagnostics.push(...capabilityResolution.diagnostics)
+  // Keep the declared revision for provenance, but acquire the exact locked
+  // commit. A changed source/version must not inherit an unrelated old lock.
+  for (const capability of capabilityResolution.capabilities) {
+    const entry = loaded.capabilityLocks?.[capability.id]
+    if (!entry || typeof entry !== "object" || !("source" in entry)) continue
+    const locked = entry as {
+      identity?: string
+      version?: string
+      integrity?: string
+      source?: Record<string, unknown>
+    }
+    const source = capability.source
+    const previous = locked.source
+    if (
+      source.type !== "git" ||
+      !previous ||
+      typeof previous !== "object" ||
+      locked.identity !== capability.identity ||
+      locked.version !== capability.version ||
+      previous.type !== "git" ||
+      previous.url !== source.url ||
+      previous.path !== source.path ||
+      JSON.stringify(previous.revision) !== JSON.stringify(source.revision) ||
+      typeof previous.resolvedCommit !== "string"
+    )
+      continue
+    capability.lockedCommit = previous.resolvedCommit
+    if (!capability.integrity && locked.integrity) capability.integrity = locked.integrity
+  }
   const setupResolution = resolveConfigSetups(
     [
       ...loaded.configs,
@@ -221,7 +252,7 @@ export async function resolveRepositories(
         diagnostic("ASTR2001", "error", `Required repository ${id} is missing`, {
           remediation:
             repository.source.type === "git"
-              ? "Run astrail bootstrap to clone the repository."
+              ? "Run astrail install to clone the repository."
               : "Configure or restore the declared local path.",
           details: { path },
         }),

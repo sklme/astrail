@@ -3,7 +3,6 @@ import { readFile } from "node:fs/promises"
 import { resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import {
-  applyBootstrap,
   applyEnvironmentAddition,
   applyEnvironmentCheckout,
   applyFilePlan,
@@ -11,7 +10,6 @@ import {
   applySkillAddition,
   applySkillImport,
   type ChangePlan,
-  type ConfigSetupEntry,
   type Diagnostic,
   diagnostic,
   discoverRepositorySkills,
@@ -25,19 +23,15 @@ import {
   explainProvenance,
   getEnvironmentCheckoutStatus,
   journalSkipStep,
-  journalStep,
   listJournal,
   loadContextContent,
   loadWorkspace,
-  pathExists,
-  planBootstrap,
   planEnvironmentAddition,
   planEnvironmentCheckout,
   planLock,
   planRepositoryAddition,
   planSkillAddition,
   planSkillImport,
-  planUpdate,
   type RepositoryAdditionApplyData,
   type RepositoryAdditionPlan,
   type RepositorySkillInventory,
@@ -81,6 +75,11 @@ import {
   createTerminalEnvironmentPrompter,
   type EnvironmentPrompter,
 } from "./environment-prompt.js"
+import {
+  installWorkspace,
+  SETUP_HANDOFF_INSTRUCTION,
+  type WorkspaceInstallData,
+} from "./install.js"
 import { executeWithJournal, renderJournal, renderJournalOperation } from "./journal.js"
 import { isWorkspaceRuntime } from "./local-runtime.js"
 import { CLI_EXIT_CODES, emitResult, type OutputWriter, processWriter, table } from "./output.js"
@@ -127,11 +126,10 @@ interface CliDoctorData {
 interface AgentNextStep {
   operation:
     | "open"
-    | "bootstrap"
+    | "install"
     | "repository-add"
     | "skill-discover"
     | "skill-import"
-    | "sync"
     | "environment-add"
   command: string
   reason: string
@@ -145,22 +143,7 @@ type CliRepositoryAdditionData = RepositoryAdditionApplyData & {
   nextSteps?: AgentNextStep[]
 }
 
-interface CliBootstrapData {
-  editorWorkspace?: EditorWorkspaceData
-  bootstrap: ChangePlan[]
-  projection?: Awaited<ReturnType<typeof syncCodexProjection>>["data"]
-  repositorySkills: RepositorySkillInventory
-  setup: CliConfigSetupEntry[]
-}
-
-interface CliConfigSetupEntry extends Omit<ConfigSetupEntry, "status"> {
-  status: "blocked" | "planned" | "available"
-  path?: string
-  instruction?: string
-}
-
-const SETUP_HANDOFF_INSTRUCTION =
-  "As part of the requested Workspace initialization, read the SKILL.md at path and complete its setup now, in output order, without asking for a separate setup request. Check existing configuration first. Report unresolved login, credentials, or other prerequisites as unfinished initialization; availability does not prove completed setup or authentication."
+type CliBootstrapData = WorkspaceInstallData
 
 export interface ProgramDependencies {
   editor?: EditorDependencies
@@ -218,7 +201,16 @@ export function createProgram(
             {
               ...initialized.data,
               nextSteps: initialized.success
-                ? [editorOpenStep(), ...initialized.data.nextSteps]
+                ? [
+                    ...initialized.data.nextSteps,
+                    {
+                      operation: "install",
+                      command: "astrail --json install --dry-run",
+                      reason: "Preview workspace installation, automatic locking and projection.",
+                      requiresAuthorization: false,
+                    },
+                    editorOpenStep(),
+                  ]
                 : initialized.data.nextSteps,
             },
             initialized.diagnostics,
@@ -610,14 +602,14 @@ function renderSkillPlan(plan: SkillAdditionPlan): string {
       },
     ]),
     table(plan.actions),
-    "Skill declaration is separate from installation; run astrail sync --dry-run afterward.",
+    "Skill declaration is separate from installation; run astrail install --dry-run afterward.",
   ].join("\n\n")
 }
 
 function renderSkillApply(data: SkillAdditionApplyData | { applied: false; plan: null }): string {
   if (!data.plan) return ""
   if (!data.applied) return renderSkillPlan(data.plan)
-  return `Added Skill ${data.capability?.id ?? data.plan.addition?.id ?? ""}.\nRun astrail sync --dry-run, then astrail sync --yes separately to install it.`
+  return `Added Skill ${data.capability?.id ?? data.plan.addition?.id ?? ""}.\nRun astrail install --dry-run, then astrail install --yes separately to install it.`
 }
 
 function renderSkillDiscovery(discovery: SkillDiscoveryResult): string {
@@ -658,7 +650,7 @@ function renderSkillImportPlan(plan: SkillImportPlan): string {
       })),
     ),
     table(plan.actions),
-    "Skill import is separate from projection; run astrail sync --dry-run afterward.",
+    "Skill import is separate from projection; run astrail install --dry-run afterward.",
   ].join("\n\n")
 }
 
@@ -667,7 +659,7 @@ function renderSkillImportApply(
 ): string {
   if (!data.plan) return ""
   if (!data.applied) return renderSkillImportPlan(data.plan)
-  return `Imported ${data.capabilities.length} Skill${data.capabilities.length === 1 ? "" : "s"}.\nRun astrail sync --dry-run, then astrail sync --yes separately to expose them.`
+  return `Imported ${data.capabilities.length} Skill${data.capabilities.length === 1 ? "" : "s"}.\nRun astrail install --dry-run, then astrail install --yes separately to expose them.`
 }
 
 function addConfigCommands(program: Command, writer: OutputWriter): void {
@@ -1039,8 +1031,8 @@ function repositoryAdditionNextSteps(
     ...(skillImport?.applied
       ? [
           {
-            operation: "sync" as const,
-            command: "astrail --json sync --dry-run",
+            operation: "install" as const,
+            command: "astrail --json install --dry-run",
             reason: "Preview projection of the newly imported Skills.",
             requiresAuthorization: false,
           },
@@ -1137,7 +1129,7 @@ function renderRepositoryApply(
         : `Discovered ${data.repositorySkills.discovered} repository Skill${data.repositorySkills.discovered === 1 ? "" : "s"}: ${data.repositorySkills.imported} imported, ${data.repositorySkills.unimported} unimported, ${data.repositorySkills.importable} importable.`
       : "Repository Skill discovery was not available.",
     data.skillImport?.applied
-      ? `Imported ${data.skillImport.capabilities.length} Skill${data.skillImport.capabilities.length === 1 ? "" : "s"}; run astrail sync --dry-run before projection.`
+      ? `Imported ${data.skillImport.capabilities.length} Skill${data.skillImport.capabilities.length === 1 ? "" : "s"}; run astrail install --dry-run before projection.`
       : data.repositorySkills?.unimported
         ? `Run astrail skill import --repository ${repositoryId} to select and trust repository Skills.`
         : "No repository Skill import is pending.",
@@ -1508,8 +1500,8 @@ function addProjectionCommands(program: Command, writer: OutputWriter): void {
       )
     })
   program
-    .command("sync")
-    .description("synchronize Codex artifacts and the editor workspace")
+    .command("sync", { hidden: true })
+    .description("deprecated: synchronize projections only; use install for the full workflow")
     .option("--dry-run", "preview without writing")
     .option("--yes", "authorize remote capability acquisition")
     .action(async (options: { dryRun?: boolean; yes?: boolean }, command: Command) => {
@@ -1544,110 +1536,28 @@ function addProjectionCommands(program: Command, writer: OutputWriter): void {
 }
 
 function addLifecycleCommands(program: Command, writer: OutputWriter): void {
-  program
-    .command("bootstrap")
-    .option("--dry-run", "preview without cloning or writing")
-    .option("--yes", "authorize clone and executable review actions")
-    .action(async (options: { dryRun?: boolean; yes?: boolean }, command: Command) => {
-      await execute<CliBootstrapData>(
-        "bootstrap",
-        command,
-        writer,
-        async (context) => {
-          let workspace = await resolveWorkspace({ ...context, observe: true })
-          const plans: ChangePlan[] = []
-          const applyDiagnostics: Diagnostic[] = []
-          for (let attempt = 0; attempt < 66; attempt += 1) {
-            const plan = await planBootstrap(workspace)
-            plans.push(plan)
-            const applied = await applyBootstrap(workspace, plan, {
-              dryRun: options.dryRun === true,
-              authorized: options.yes === true,
-            })
-            applyDiagnostics.push(...applied.diagnostics)
-            const hasAcquisition = plan.actions.some(
-              (action) => action.type === "clone" || action.type === "acquire",
-            )
-            if (!applied.success || options.dryRun || !hasAcquisition) break
-            workspace = await resolveWorkspace({ ...context, observe: true })
-          }
-          if (!options.dryRun && applyDiagnostics.every((item) => item.severity !== "error")) {
-            const remaining = await planBootstrap(workspace)
-            if (
-              remaining.actions.some(
-                (action) => action.type === "clone" || action.type === "acquire",
-              )
-            )
-              applyDiagnostics.push(
-                diagnostic(
-                  "ASTR6107",
-                  "error",
-                  "Bootstrap exceeded the config acquisition depth limit",
-                  {
-                    remediation: "Review the config reference graph before retrying.",
-                  },
-                ),
-              )
-          }
-          const inspectedSkills = await journalStep("skill.discover", () =>
-            inspectBootstrapRepositorySkills(context),
-          )
-          if (
-            applyDiagnostics.every((item) => item.severity !== "error") &&
-            workspace.configs.every((config) => config.available)
-          ) {
-            if (!options.dryRun) workspace = await resolveWorkspace({ ...context, observe: true })
-            const projection = await planCodexProjection(workspace)
-            const synced = await syncCodexProjection(projection, {
-              dryRun: options.dryRun === true,
-              authorized: options.yes === true,
-            })
-            if (!synced.success) journalSkipStep("editor.sync", "blocked")
-            const editorWorkspace = await syncEditorWorkspace(await resolveWorkspace(context), {
-              dryRun: options.dryRun === true || !synced.success,
-            })
-            return result(
-              {
-                editorWorkspace: editorWorkspace.data,
-                bootstrap: plans,
-                projection: synced.data,
-                repositorySkills: inspectedSkills.inventory,
-                setup: await configSetupHandoff(
-                  workspace,
-                  synced.data,
-                  options.dryRun === true,
-                  synced.success,
-                ),
-              },
-              uniqueDiagnostics([
-                ...workspace.diagnostics,
-                ...applyDiagnostics,
-                ...synced.diagnostics,
-                ...inspectedSkills.diagnostics,
-                ...editorWorkspace.diagnostics,
-              ]),
-            )
-          }
-          journalSkipStep("projection.sync", "blocked")
-          journalSkipStep("editor.sync", "blocked")
-          return result(
-            {
-              bootstrap: plans,
-              repositorySkills: inspectedSkills.inventory,
-              setup: await configSetupHandoff(workspace),
-            },
-            uniqueDiagnostics([
-              ...workspace.diagnostics,
-              ...applyDiagnostics,
-              ...inspectedSkills.diagnostics,
-            ]),
-          )
-        },
-        renderBootstrap,
+  for (const name of ["install", "bootstrap"] as const) {
+    program
+      .command(name, { hidden: name === "bootstrap" })
+      .description(
+        name === "install"
+          ? "install workspace resources, lock resolutions and synchronize artifacts"
+          : "compatibility alias for install",
       )
-    })
+      .option("--dry-run", "preview local actions without network access or writes")
+      .option("--yes", "authorize remote acquisition and repository preparation")
+      .action(async (options: { dryRun?: boolean; yes?: boolean }, command: Command) => {
+        await execute(
+          name,
+          command,
+          writer,
+          (context) => installWorkspace(context, options),
+          (data) => renderBootstrap(data, name === "bootstrap" ? "Bootstrap" : "Install"),
+        )
+      })
+  }
   program
-    .command("lock")
+    .command("lock", { hidden: true })
     .option("--dry-run", "preview without writing")
     .action(async (options: { dryRun?: boolean }, command: Command) => {
       await execute(
@@ -1670,98 +1580,40 @@ function addLifecycleCommands(program: Command, writer: OutputWriter): void {
     })
   program
     .command("update")
-    .option("--dry-run", "preview without writing")
-    .option("--restore", "restore the previous lock state")
-    .action(async (options: { dryRun?: boolean; restore?: boolean }, command: Command) => {
-      await execute<{ restored: boolean; plan: ChangePlan | null }>(
-        "update",
-        command,
-        writer,
-        async (context) => {
-          const loaded = await loadWorkspace(context)
+    .description("refresh remote dependencies, lock resolutions and synchronize artifacts")
+    .option("--dry-run", "preview sources to check without network access or writes")
+    .option("--yes", "authorize remote dependency refresh")
+    .option("--restore", "compatibility: restore the previous lock state only")
+    .action(
+      async (options: { dryRun?: boolean; yes?: boolean; restore?: boolean }, command: Command) => {
+        await execute<
+          Partial<WorkspaceInstallData> & { restored: boolean; plan: ChangePlan | null }
+        >("update", command, writer, async (context) => {
           if (options.restore) {
+            const loaded = await loadWorkspace(context)
+            if (options.dryRun) return result({ restored: false, plan: null })
             const restored = await restorePreviousLock(loaded.root)
             return result({ restored: restored.data.restored, plan: null }, restored.diagnostics)
           }
-          const workspace = await resolveWorkspace({ ...context, ignoreLock: true })
-          const projection = await planCodexProjection(workspace)
-          const plan = await planUpdate(workspace, {
-            acquisitions: gitCapabilityResolutions(projection),
-          })
-          const applied = await applyFilePlan(workspace.root, plan, {
-            dryRun: options.dryRun === true,
-          })
-          return result({ restored: false, plan: applied.data }, [
-            ...workspace.diagnostics,
-            ...applied.diagnostics,
-          ])
-        },
-      )
-    })
-}
-
-async function configSetupHandoff(
-  workspace: ResolvedWorkspace,
-  projection?: CliBootstrapData["projection"],
-  dryRun = false,
-  success = false,
-): Promise<CliConfigSetupEntry[]> {
-  return Promise.all(
-    workspace.configSetups.map(async (entry): Promise<CliConfigSetupEntry> => {
-      if (entry.status !== "pending") return { ...entry, status: entry.status }
-      const artifact = projection?.artifacts.find(
-        (item) => item.identity === entry.skill && item.ownership !== "manifest-entry",
-      )
-      const path = artifact ? resolve(workspace.root, artifact.path, "SKILL.md") : undefined
-      const status = !path
-        ? "blocked"
-        : dryRun
-          ? "planned"
-          : success && (await pathExists(path))
-            ? "available"
-            : "blocked"
-      return {
-        ...entry,
-        status,
-        ...(path ? { path } : {}),
-        ...(status === "available" ? { instruction: SETUP_HANDOFF_INSTRUCTION } : {}),
-      }
-    }),
-  )
-}
-
-async function inspectBootstrapRepositorySkills(context: CommandContext): Promise<{
-  inventory: RepositorySkillInventory
-  diagnostics: Diagnostic[]
-}> {
-  const discovery = await discoverRepositorySkills({ all: true }, context)
-  const inventory = summarizeRepositorySkillDiscovery(discovery)
-  const diagnostics = discovery.diagnostics.filter((item) => item.severity === "error")
-  if (inventory.unimported > 0) {
-    diagnostics.push(
-      diagnostic(
-        "ASTR6105",
-        "information",
-        `Bootstrap found ${inventory.unimported} repository Skill${inventory.unimported === 1 ? "" : "s"} that ${inventory.unimported === 1 ? "is" : "are"} not imported`,
-        {
-          remediation:
-            "Review astrail skill discover --all, selectively import with astrail skill import, then preview astrail sync --dry-run.",
-          details: { repositorySkills: inventory },
-        },
-      ),
+          const installed = await installWorkspace(context, { ...options, update: true })
+          return result(
+            { ...installed.data, restored: false, plan: installed.data.lock ?? null },
+            installed.diagnostics,
+          )
+        })
+      },
     )
-  }
-  return { inventory, diagnostics }
 }
 
-function renderBootstrap(data: CliBootstrapData): string {
+function renderBootstrap(data: CliBootstrapData, label = "Install"): string {
   const actions = [
     ...data.bootstrap.flatMap((plan) => plan.actions),
     ...(data.projection?.changePlan.actions ?? []),
     ...(data.editorWorkspace?.plan.actions ?? []),
+    ...(data.lock?.actions ?? []),
   ]
   const sections = [
-    "Bootstrap actions",
+    `${label} actions`,
     table(actions),
     "Repository Skills",
     table([
@@ -1789,7 +1641,7 @@ function renderBootstrap(data: CliBootstrapData): string {
   }
   if (data.setup.length)
     sections.push(
-      "Config setup (Agent handoff; not executed by bootstrap)",
+      "Config setup (Agent handoff; not executed by the CLI)",
       table(
         data.setup.map((entry) => ({
           config: entry.config,
