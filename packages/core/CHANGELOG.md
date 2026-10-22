@@ -1,5 +1,12 @@
 # astrail-core
 
+## 0.13.1
+
+### Patch Changes
+
+- Use installation resolution during repository Skill discovery so install, update, and bootstrap previews can refresh a changed Workspace Skill's automatic lock without reporting stale lock constraints. Explicitly declared integrity constraints remain enforced.
+- astrail-schema@0.13.1
+
 ## 0.13.0
 
 ### Minor Changes

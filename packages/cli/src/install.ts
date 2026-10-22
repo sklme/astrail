@@ -79,7 +79,7 @@ async function runInstall(
     : workspace
   const plans: ChangePlan[] = []
   const diagnostics: Diagnostic[] = []
-  const inventory = await inspectInstalledRepositorySkills(context)
+  const inventory = await inspectInstalledRepositorySkills(resolution)
   const data: WorkspaceInstallData = {
     root: workspace.root,
     bootstrap: plans,
@@ -259,7 +259,7 @@ async function runInstall(
   data.lock = locked.data
   diagnostics.push(...locked.diagnostics)
   const discovered = await journalStep("skill.discover", () =>
-    inspectInstalledRepositorySkills(context),
+    inspectInstalledRepositorySkills(resolution),
   )
   data.repositorySkills = discovered.inventory
   diagnostics.push(...discovered.diagnostics)
@@ -319,7 +319,9 @@ async function configSetupHandoff(
   )
 }
 
-async function inspectInstalledRepositorySkills(context: InstallContext): Promise<{
+async function inspectInstalledRepositorySkills(
+  context: InstallContext & { install?: boolean; ignoreLock?: boolean },
+): Promise<{
   inventory: RepositorySkillInventory
   diagnostics: Diagnostic[]
 }> {

@@ -1,5 +1,13 @@
 # astrail-testing
 
+## 0.13.1
+
+### Patch Changes
+
+- Updated dependencies
+  - astrail-core@0.13.1
+  - astrail-target-codex@0.13.1
+
 ## 0.13.0
 
 ### Patch Changes

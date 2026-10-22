@@ -1,6 +1,6 @@
 {
   "name": "astrail-schema",
-  "version": "0.13.0",
+  "version": "0.13.1",
   "description": "Versioned Astrail JSON Schemas and generated TypeScript types",
   "license": "Apache-2.0",
   "repository": {

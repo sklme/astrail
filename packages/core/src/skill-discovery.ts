@@ -148,7 +148,7 @@ export interface SkillImportApplyOptions {
 
 export async function discoverRepositorySkills(
   scope: SkillDiscoveryScope = { all: true },
-  options: { cwd?: string; config?: string } = {},
+  options: { cwd?: string; config?: string; install?: boolean; ignoreLock?: boolean } = {},
 ): Promise<SkillDiscoveryResult> {
   const workspace = await resolveWorkspace({ ...options, observe: true })
   const diagnostics = [...workspace.diagnostics]

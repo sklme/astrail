@@ -84,6 +84,61 @@ const text = (root: string, path: string) => readFile(join(root, path), "utf8")
 const lock = async (root: string) => parse(await text(root, "astrail.lock.yaml"))
 
 describe("install and update lifecycle", () => {
+  it.each(["install", "update", "bootstrap"])(
+    "%s previews a changed Workspace Skill without treating the old lock as a declaration",
+    async (command) => {
+      const root = await directory()
+      await mkdir(join(root, "skills", "example"), { recursive: true })
+      await writeFile(join(root, "skills", "example", "SKILL.md"), "# First\n")
+      await manifest(root, {
+        policies: { projectionStrategy: "copy" },
+        capabilities: {
+          example: {
+            identity: "team/example",
+            kind: "skill",
+            source: { type: "workspace", path: "skills/example" },
+          },
+        },
+      })
+      await succeeds(root, "install", "--yes")
+      const initialLock = await text(root, "astrail.lock.yaml")
+      await writeFile(join(root, "skills", "example", "SKILL.md"), "# Second\n")
+      const preview = await succeeds(root, command, "--dry-run")
+      expect(preview.data.lock.actions).toHaveLength(1)
+      expect(await text(root, "astrail.lock.yaml")).toBe(initialLock)
+      expect(await text(root, ".agents/skills/example/SKILL.md")).toBe("# First\n")
+      await succeeds(root, command, "--yes")
+      expect(await text(root, "astrail.lock.yaml")).not.toBe(initialLock)
+      expect(await text(root, ".agents/skills/example/SKILL.md")).toBe("# Second\n")
+    },
+  )
+
+  it("still rejects drift against an explicitly declared Skill integrity", async () => {
+    const root = await directory()
+    await mkdir(join(root, "skills", "example"), { recursive: true })
+    await writeFile(join(root, "skills", "example", "SKILL.md"), "# First\n")
+    const capability = {
+      identity: "team/example",
+      kind: "skill",
+      source: { type: "workspace", path: "skills/example" },
+    }
+    await manifest(root, { capabilities: { example: capability } })
+    await succeeds(root, "install", "--yes")
+    const initialLock = await text(root, "astrail.lock.yaml")
+    await manifest(root, {
+      capabilities: {
+        example: { ...capability, integrity: (await lock(root)).capabilities.example.integrity },
+      },
+    })
+    await writeFile(join(root, "skills", "example", "SKILL.md"), "# Second\n")
+    for (const command of ["install", "update"]) {
+      const preview = await cli(root, command, "--dry-run")
+      expect(preview.success).toBe(false)
+      expect(preview.diagnostics).toContainEqual(expect.objectContaining({ code: "ASTR4004" }))
+    }
+    expect(await text(root, "astrail.lock.yaml")).toBe(initialLock)
+  })
+
   it("installs and locks, preserves a moving default branch, restores its cache, then updates all managed state", async () => {
     const root = await directory()
     const { remote, first } = await sharedRemote()

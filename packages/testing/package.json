@@ -1,6 +1,6 @@
 {
   "name": "astrail-testing",
-  "version": "0.13.0",
+  "version": "0.13.1",
   "private": true,
   "description": "Private Astrail conformance and fixture helpers",
   "license": "Apache-2.0",
