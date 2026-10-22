@@ -24,7 +24,12 @@
     "templates/0.11.0/catalog.json": "4e37f4ce2c964e46371dd2180fff8de11da860632b13b4dd8728152be4ae08b7",
     "templates/0.12.0/catalog.json": "4e37f4ce2c964e46371dd2180fff8de11da860632b13b4dd8728152be4ae08b7",
     "templates/0.13.0/catalog.json": "4e37f4ce2c964e46371dd2180fff8de11da860632b13b4dd8728152be4ae08b7",
-    "templates/0.9.1/catalog.json": "4e37f4ce2c964e46371dd2180fff8de11da860632b13b4dd8728152be4ae08b7"
+    "templates/0.9.1/catalog.json": "4e37f4ce2c964e46371dd2180fff8de11da860632b13b4dd8728152be4ae08b7",
+    "schema/0.13.1/workspace-v1alpha1.json": "1218736d026d651cecb44e7d2a258756b1ed7d894375bf8c011bf99f21ad5f2d",
+    "schema/0.13.1/local-v1alpha1.json": "c8ac2131759ff95d8c45ede5b4e8c2eab9bb7e37c7bf3c0b0b0c9835380e91df",
+    "schema/0.13.1/config-v1alpha1.json": "5046f59d785881ad94198810351e83f15d5148c589eb4bf037202e16dc8de673",
+    "schema/0.13.1/lock-v1alpha1.json": "2ab4d8c9d7d68c10d046b0e2512e89726df5356985ad065d2f1eded9278b9141",
+    "templates/0.13.1/catalog.json": "4e37f4ce2c964e46371dd2180fff8de11da860632b13b4dd8728152be4ae08b7"
   },
   "formatVersion": 1
 }
