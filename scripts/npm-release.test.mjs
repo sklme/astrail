@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { createHash } from "node:crypto"
 import test from "node:test"
+import { gzipSync } from "node:zlib"
 import {
   checkArtifactSource,
   checkManifest,
@@ -9,6 +10,7 @@ import {
   metadata,
   parseVersion,
   promotion,
+  restorePackedMetadata,
   verifyPackage,
 } from "./npm-release.mjs"
 
@@ -157,4 +159,30 @@ test("publication tolerates delayed indexing and archive propagation without rep
     }),
     /inspect before retrying/,
   )
+})
+
+test("metadata restoration permits JSON key order only and preserves other bytes", () => {
+  const build = (text) => {
+    const header = Buffer.alloc(512)
+    header.write("package/package.json")
+    header.write(Buffer.byteLength(text).toString(8).padStart(11, "0"), 124)
+    header[156] = 48
+    return gzipSync(
+      Buffer.concat([
+        header,
+        Buffer.from(text),
+        Buffer.alloc(512 - Buffer.byteLength(text)),
+        Buffer.alloc(1024),
+      ]),
+      { level: 6 },
+    )
+  }
+  const expected = '{"name":"example","version":"1.0.0"}'
+  const reordered = '{"version":"1.0.0","name":"example"}'
+  assert.deepEqual(restorePackedMetadata(build(reordered), expected), build(expected))
+  assert.throws(
+    () => restorePackedMetadata(build(reordered), expected.replace("1.0.0", "1.0.1")),
+    /semantic changes/,
+  )
+  assert.throws(() => restorePackedMetadata(gzipSync(Buffer.alloc(1024)), expected), /exactly one/)
 })

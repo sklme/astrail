@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
+import { gunzipSync, gzipSync } from "node:zlib"
 
 export const packages = [
   ["astrail-schema", "schema"],
@@ -87,10 +88,54 @@ export function checkArtifactSource(manifest, operation) {
   assert.equal(manifest.artifactSource, operation === "verify" ? "registry" : "build")
 }
 
+export function restorePackedMetadata(bytes, expectedJson) {
+  const tar = gunzipSync(bytes)
+  let found = 0
+  for (let offset = 0; offset + 512 <= tar.length; ) {
+    const header = tar.subarray(offset, offset + 512)
+    if (header.every((byte) => byte === 0)) break
+    const name = header.subarray(0, 100).toString().replace(/\0.*$/, "")
+    const size = Number.parseInt(
+      header.subarray(124, 136).toString().replace(/\0.*$/, "").trim(),
+      8,
+    )
+    assert(Number.isSafeInteger(size) && size >= 0 && offset + 512 + size <= tar.length)
+    if (name === "package/package.json") {
+      assert([0, 48].includes(header[156]), "Manifest must be a regular file")
+      const replacement = Buffer.from(expectedJson)
+      const actual = tar.subarray(offset + 512, offset + 512 + size)
+      assert.deepEqual(
+        JSON.parse(actual.toString()),
+        JSON.parse(expectedJson),
+        "Packed manifest has semantic changes",
+      )
+      assert.equal(replacement.length, size, "Packed manifest size differs")
+      replacement.copy(tar, offset + 512)
+      found++
+    }
+    offset += 512 + Math.ceil(size / 512) * 512
+  }
+  assert.equal(found, 1, "Expected exactly one packed manifest")
+  const packed = gzipSync(tar, { level: 6 })
+  // Preserve the original gzip platform/header; the final SHA-512 remains authoritative.
+  bytes.copy(packed, 0, 0, 10)
+  return packed
+}
+
 async function prepare(version, directory, operation) {
   parseVersion(version)
   assert(["verify", "publish"].includes(operation))
   mkdirSync(directory, { recursive: true })
+  const pinPath = join(root, "scripts", "npm-release-artifacts", `${version}.json`)
+  const pin = operation === "publish" && existsSync(pinPath) ? json(pinPath) : undefined
+  if (pin) {
+    assert.equal(pin.version, version)
+    assert.equal(pin.artifactSource, "build")
+    assert.deepEqual(
+      pin.packages.map((item) => item.name),
+      packages.map(([name]) => name),
+    )
+  }
   const release = {
     version,
     artifactSource: operation === "verify" ? "registry" : "build",
@@ -116,6 +161,16 @@ async function prepare(version, directory, operation) {
       const source = json(join(root, "packages", folder, "package.json"))
       assert.equal(source.version, version, name)
       command("pnpm", ["--dir", `packages/${folder}`, "pack", "--out", path])
+      if (pin) {
+        const expected = pin.packages.find((item) => item.name === name)
+        const bytes = readFileSync(path)
+        const normalized =
+          hash(bytes) === expected.integrity
+            ? bytes
+            : restorePackedMetadata(bytes, expected.packageJson)
+        assert.equal(hash(normalized), expected.integrity, `Reviewed build differs: ${name}`)
+        writeFileSync(path, normalized)
+      }
     }
     const listing = command("tar", ["-tzf", path], { encoding: "utf8", stdio: "pipe" })
       .trim()

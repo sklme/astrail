@@ -1,0 +1,56 @@
+{
+  "version": "0.14.0",
+  "artifactSource": "build",
+  "commit": "04fe1250ae7fbd67655353d4729849088232eebd",
+  "packages": [
+    {
+      "name": "astrail-schema",
+      "filename": "astrail-schema-0.14.0.tgz",
+      "integrity": "sha512-Dy5z7rV5pu1XqJ1YBa9BrSWuI2HbO6HvROXuO3BU96biiOMR9RUJ4RTU5J5G1aYEa4ORWxcMITVNnlqjo/yISg==",
+      "files": 29,
+      "packageJson": "{\n  \"name\": \"astrail-schema\",\n  \"version\": \"0.14.0\",\n  \"description\": \"Versioned Astrail JSON Schemas and generated TypeScript types\",\n  \"license\": \"Apache-2.0\",\n  \"repository\": {\n    \"type\": \"git\",\n    \"url\": \"git+https://github.com/sklme/astrail.git\",\n    \"directory\": \"packages/schema\"\n  },\n  \"type\": \"module\",\n  \"engines\": {\n    \"node\": \">=22.12.0\"\n  },\n  \"files\": [\n    \"dist\",\n    \"!dist/**/*.test.*\",\n    \"!dist/.tsbuildinfo\",\n    \"schema\",\n    \"README.md\",\n    \"resources.json\"\n  ],\n  \"exports\": {\n    \".\": {\n      \"types\": \"./dist/index.d.ts\",\n      \"import\": \"./dist/index.js\"\n    },\n    \"./workspace-v1alpha1.json\": \"./schema/workspace-v1alpha1.schema.json\",\n    \"./local-v1alpha1.json\": \"./schema/local-v1alpha1.schema.json\",\n    \"./lock-v1alpha1.json\": \"./schema/lock-v1alpha1.schema.json\",\n    \"./package.json\": \"./package.json\",\n    \"./resources.json\": \"./resources.json\",\n    \"./config-v1alpha1.json\": \"./schema/config-v1alpha1.schema.json\"\n  },\n  \"devDependencies\": {\n    \"json-schema-to-typescript\": \"15.0.4\"\n  },\n  \"homepage\": \"https://github.com/sklme/astrail#readme\",\n  \"bugs\": {\n    \"url\": \"https://github.com/sklme/astrail/issues\"\n  },\n  \"publishConfig\": {\n    \"access\": \"public\",\n    \"registry\": \"https://registry.npmjs.org/\"\n  },\n  \"scripts\": {\n    \"generate\": \"node scripts/generate-config-schema.mjs && biome format --write schema && json2ts -i schema/effective-workspace-v1alpha1.schema.json -o src/generated/workspace.ts && json2ts -i schema/local-v1alpha1.schema.json -o src/generated/local.ts && json2ts -i schema/lock-v1alpha1.schema.json -o src/generated/lock.ts && json2ts -i schema/config-v1alpha1.schema.json -o src/generated/config.ts\",\n    \"build\": \"tsc -b\",\n    \"typecheck\": \"tsc -b --pretty false\",\n    \"test\": \"vitest run --root ../.. packages/schema\"\n  }\n}"
+    },
+    {
+      "name": "astrail-core",
+      "filename": "astrail-core-0.14.0.tgz",
+      "integrity": "sha512-tZcroh0/alhRwn5K9MMe/9+57ZPAKDsut+bMaKM4QQ2QWmECjiYVQ4lHUF3KG3moqVFwVJYBP/0YsU3qsCyDAA==",
+      "files": 123,
+      "packageJson": "{\n  \"name\": \"astrail-core\",\n  \"version\": \"0.14.0\",\n  \"description\": \"Portable Astrail workspace resolver and lifecycle core\",\n  \"license\": \"Apache-2.0\",\n  \"repository\": {\n    \"type\": \"git\",\n    \"url\": \"git+https://github.com/sklme/astrail.git\",\n    \"directory\": \"packages/core\"\n  },\n  \"type\": \"module\",\n  \"engines\": {\n    \"node\": \">=22.12.0\"\n  },\n  \"files\": [\n    \"dist\",\n    \"!dist/**/*.test.*\",\n    \"!dist/.tsbuildinfo\",\n    \"README.md\"\n  ],\n  \"exports\": {\n    \".\": {\n      \"types\": \"./dist/index.d.ts\",\n      \"import\": \"./dist/index.js\"\n    }\n  },\n  \"dependencies\": {\n    \"ajv\": \"8.20.0\",\n    \"ajv-formats\": \"3.0.1\",\n    \"glob\": \"13.0.6\",\n    \"jsonc-parser\": \"3.3.1\",\n    \"semver\": \"7.8.5\",\n    \"yaml\": \"2.9.0\",\n    \"astrail-schema\": \"0.14.0\"\n  },\n  \"devDependencies\": {\n    \"@types/semver\": \"7.7.1\"\n  },\n  \"homepage\": \"https://github.com/sklme/astrail#readme\",\n  \"bugs\": {\n    \"url\": \"https://github.com/sklme/astrail/issues\"\n  },\n  \"publishConfig\": {\n    \"access\": \"public\",\n    \"registry\": \"https://registry.npmjs.org/\"\n  },\n  \"scripts\": {\n    \"build\": \"tsc -b\",\n    \"typecheck\": \"tsc -b --pretty false\",\n    \"test\": \"vitest run --root ../.. packages/core\"\n  }\n}"
+    },
+    {
+      "name": "astrail-target-shared",
+      "filename": "astrail-target-shared-0.14.0.tgz",
+      "integrity": "sha512-6a36poxrtdP+hnt0MZoEp104kvCNY0oe9Ap/ufY8jnvrC1vDnFOcuwSgZ6Cd0O2xhNzW64HuNI+MA2NPsrSrvQ==",
+      "files": 17,
+      "packageJson": "{\n  \"name\": \"astrail-target-shared\",\n  \"version\": \"0.14.0\",\n  \"description\": \"Shared projection engine and built-in Skills for Astrail targets\",\n  \"license\": \"Apache-2.0\",\n  \"repository\": {\n    \"type\": \"git\",\n    \"url\": \"git+https://github.com/sklme/astrail.git\",\n    \"directory\": \"packages/target-shared\"\n  },\n  \"type\": \"module\",\n  \"engines\": {\n    \"node\": \">=22.12.0\"\n  },\n  \"files\": [\n    \"dist\",\n    \"!dist/**/*.test.*\",\n    \"!dist/.tsbuildinfo\",\n    \"skills\",\n    \"README.md\"\n  ],\n  \"exports\": {\n    \".\": {\n      \"types\": \"./dist/index.d.ts\",\n      \"import\": \"./dist/index.js\"\n    }\n  },\n  \"dependencies\": {\n    \"astrail-core\": \"0.14.0\"\n  },\n  \"homepage\": \"https://github.com/sklme/astrail#readme\",\n  \"bugs\": {\n    \"url\": \"https://github.com/sklme/astrail/issues\"\n  },\n  \"publishConfig\": {\n    \"access\": \"public\",\n    \"registry\": \"https://registry.npmjs.org/\"\n  },\n  \"scripts\": {\n    \"build\": \"tsc -b\",\n    \"typecheck\": \"tsc -b --pretty false\",\n    \"test\": \"vitest run --root ../.. packages/target-codex packages/target-codebuddy\"\n  }\n}"
+    },
+    {
+      "name": "astrail-target-codex",
+      "filename": "astrail-target-codex-0.14.0.tgz",
+      "integrity": "sha512-k46yIftAJXQY4L+rFd/qhQEC6qHoQiXR9GTF7nUnQwOFmnVNp2bnh+2E/HQw6PzJkH6N878mrFEOxxQwTqANYQ==",
+      "files": 7,
+      "packageJson": "{\n  \"name\": \"astrail-target-codex\",\n  \"version\": \"0.14.0\",\n  \"description\": \"Codex projection target for Astrail\",\n  \"license\": \"Apache-2.0\",\n  \"repository\": {\n    \"type\": \"git\",\n    \"url\": \"git+https://github.com/sklme/astrail.git\",\n    \"directory\": \"packages/target-codex\"\n  },\n  \"type\": \"module\",\n  \"engines\": {\n    \"node\": \">=22.12.0\"\n  },\n  \"files\": [\n    \"dist\",\n    \"!dist/**/*.test.*\",\n    \"!dist/.tsbuildinfo\",\n    \"README.md\"\n  ],\n  \"exports\": {\n    \".\": {\n      \"types\": \"./dist/index.d.ts\",\n      \"import\": \"./dist/index.js\"\n    }\n  },\n  \"dependencies\": {\n    \"astrail-core\": \"0.14.0\",\n    \"astrail-target-shared\": \"0.14.0\"\n  },\n  \"homepage\": \"https://github.com/sklme/astrail#readme\",\n  \"bugs\": {\n    \"url\": \"https://github.com/sklme/astrail/issues\"\n  },\n  \"publishConfig\": {\n    \"access\": \"public\",\n    \"registry\": \"https://registry.npmjs.org/\"\n  },\n  \"scripts\": {\n    \"build\": \"tsc -b\",\n    \"typecheck\": \"tsc -b --pretty false\",\n    \"test\": \"vitest run --root ../.. packages/target-codex\"\n  }\n}"
+    },
+    {
+      "name": "astrail-target-codebuddy",
+      "filename": "astrail-target-codebuddy-0.14.0.tgz",
+      "integrity": "sha512-NYPmF6DbfT2ddtksmpY2nypAMTQmnE1WVbsKZSkcGXXfZmBBoHuwddx0bMCsN4/J+JsM1qLN/7dXs9PAiBuDTg==",
+      "files": 7,
+      "packageJson": "{\n  \"name\": \"astrail-target-codebuddy\",\n  \"version\": \"0.14.0\",\n  \"description\": \"CodeBuddy IDE projection target for Astrail\",\n  \"license\": \"Apache-2.0\",\n  \"repository\": {\n    \"type\": \"git\",\n    \"url\": \"git+https://github.com/sklme/astrail.git\",\n    \"directory\": \"packages/target-codebuddy\"\n  },\n  \"type\": \"module\",\n  \"engines\": {\n    \"node\": \">=22.12.0\"\n  },\n  \"files\": [\n    \"dist\",\n    \"!dist/**/*.test.*\",\n    \"!dist/.tsbuildinfo\",\n    \"README.md\"\n  ],\n  \"exports\": {\n    \".\": {\n      \"types\": \"./dist/index.d.ts\",\n      \"import\": \"./dist/index.js\"\n    }\n  },\n  \"dependencies\": {\n    \"astrail-target-shared\": \"0.14.0\",\n    \"astrail-core\": \"0.14.0\"\n  },\n  \"homepage\": \"https://github.com/sklme/astrail#readme\",\n  \"bugs\": {\n    \"url\": \"https://github.com/sklme/astrail/issues\"\n  },\n  \"publishConfig\": {\n    \"access\": \"public\",\n    \"registry\": \"https://registry.npmjs.org/\"\n  },\n  \"scripts\": {\n    \"build\": \"tsc -b\",\n    \"typecheck\": \"tsc -b --pretty false\",\n    \"test\": \"vitest run --root ../.. packages/target-codebuddy\"\n  }\n}"
+    },
+    {
+      "name": "astrail",
+      "filename": "astrail-0.14.0.tgz",
+      "integrity": "sha512-FVOFtCXtlh3y8LB/nIxgdbVoAAM9qvTCPWuOo4lb6uwRShrl+X3oG+fXQeJaXYPNVlXARIbp7Q1qgDk0YYaYvA==",
+      "files": 59,
+      "packageJson": "{\n  \"name\": \"astrail\",\n  \"version\": \"0.14.0\",\n  \"description\": \"Chart the working trail for every agent\",\n  \"license\": \"Apache-2.0\",\n  \"repository\": {\n    \"type\": \"git\",\n    \"url\": \"git+https://github.com/sklme/astrail.git\",\n    \"directory\": \"packages/cli\"\n  },\n  \"type\": \"module\",\n  \"engines\": {\n    \"node\": \">=22.12.0\"\n  },\n  \"bin\": {\n    \"astrail\": \"./dist/index.js\"\n  },\n  \"files\": [\n    \"dist\",\n    \"!dist/**/*.test.*\",\n    \"!dist/.tsbuildinfo\",\n    \"README.md\"\n  ],\n  \"exports\": {\n    \".\": {\n      \"types\": \"./dist/program.d.ts\",\n      \"import\": \"./dist/program.js\"\n    }\n  },\n  \"dependencies\": {\n    \"@commander-js/extra-typings\": \"15.0.0\",\n    \"commander\": \"15.0.0\",\n    \"semver\": \"7.8.5\",\n    \"yaml\": \"2.9.0\",\n    \"astrail-core\": \"0.14.0\",\n    \"astrail-target-codebuddy\": \"0.14.0\",\n    \"astrail-target-shared\": \"0.14.0\",\n    \"astrail-target-codex\": \"0.14.0\"\n  },\n  \"devDependencies\": {\n    \"@types/semver\": \"7.7.1\"\n  },\n  \"homepage\": \"https://github.com/sklme/astrail#readme\",\n  \"bugs\": {\n    \"url\": \"https://github.com/sklme/astrail/issues\"\n  },\n  \"publishConfig\": {\n    \"access\": \"public\",\n    \"registry\": \"https://registry.npmjs.org/\"\n  },\n  \"scripts\": {\n    \"build\": \"tsc -b\",\n    \"typecheck\": \"tsc -b --pretty false\",\n    \"test\": \"vitest run --root ../.. packages/cli\"\n  }\n}"
+    },
+    {
+      "name": "astrail-templates",
+      "filename": "astrail-templates-0.14.0.tgz",
+      "integrity": "sha512-ZTseELEu0aMRQC11jO9P8/frvNRf1x5mDpxyZZtxPLM8orkvInLqJwir84LKKsTstGS7ieY+tYm7/5sqr0ovYQ==",
+      "files": 4,
+      "packageJson": "{\n  \"name\": \"astrail-templates\",\n  \"version\": \"0.14.0\",\n  \"description\": \"Versioned official Astrail workspace templates\",\n  \"license\": \"Apache-2.0\",\n  \"type\": \"module\",\n  \"engines\": {\n    \"node\": \">=22.12.0\"\n  },\n  \"files\": [\n    \"catalog.json\",\n    \"templates\",\n    \"README.md\"\n  ],\n  \"exports\": {\n    \"./package.json\": \"./package.json\",\n    \"./catalog.json\": \"./catalog.json\"\n  },\n  \"homepage\": \"https://github.com/sklme/astrail#readme\",\n  \"bugs\": {\n    \"url\": \"https://github.com/sklme/astrail/issues\"\n  },\n  \"publishConfig\": {\n    \"access\": \"public\",\n    \"registry\": \"https://registry.npmjs.org/\"\n  },\n  \"repository\": {\n    \"type\": \"git\",\n    \"url\": \"git+https://github.com/sklme/astrail.git\",\n    \"directory\": \"packages/templates\"\n  },\n  \"scripts\": {\n    \"check\": \"node scripts/check.mjs\"\n  }\n}"
+    }
+  ]
+}
