@@ -1,5 +1,11 @@
 # astrail-templates
 
+## 0.15.0
+
+- Support typed shared configuration inputs through `extends.with`, explicit forwarding, binding inspection, and stale-input protection.
+- Automatically maintain exact generated Skill paths in target-local `.gitignore` files while preserving user rules and source Skills.
+
+
 ## 0.14.0
 
 ## 0.13.1

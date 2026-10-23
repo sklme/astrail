@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 import type { Environment } from "astrail-schema"
 import { parseDocument } from "yaml"
+import { configBindingSnapshot } from "./config-inputs.js"
 import { validateEnvironmentBranches } from "./environment-branches.js"
 import { acquireOperationLock, atomicWrite, readTextIfExists } from "./fs.js"
 import { journalChange, journalTargets } from "./journal-trace.js"
@@ -38,6 +39,7 @@ export interface EnvironmentFileChange {
 }
 
 export interface EnvironmentAdditionPlan {
+  inputBindings?: string
   operation: "environment-add"
   planId: string
   root: string
@@ -121,6 +123,7 @@ export async function planEnvironmentAddition(
   const planId = hash(
     stableStringify({
       root: loaded.root,
+      inputBindings: configBindingSnapshot(loaded.configs),
       addition,
       files: files.map(({ path, beforeDigest, afterDigest, environmentValue }) => ({
         path,
@@ -140,6 +143,7 @@ export async function planEnvironmentAddition(
     planId,
     root: loaded.root,
     configPath: loaded.configPath,
+    inputBindings: configBindingSnapshot(loaded.configs),
     addition,
     files,
     actions: files.map((file) => ({
@@ -183,6 +187,17 @@ export async function applyEnvironmentAddition(
     return result(data, diagnostics)
   }
 
+  if (plan.inputBindings !== undefined) {
+    const current = await loadWorkspace({ cwd: plan.root, config: plan.configPath, install: true })
+    if (configBindingSnapshot(current.configs) !== plan.inputBindings)
+      return result(data, [
+        diagnostic(
+          "ASTR1119",
+          "error",
+          "Config input bindings changed after preview; prepare a new plan",
+        ),
+      ])
+  }
   const lock = await acquireOperationLock(plan.root)
   const originals = new Map<string, string>()
   let writesStarted = false

@@ -691,6 +691,10 @@
               "type": "string",
               "minLength": 1,
               "pattern": "^[^\\u0000\\r\\n]+$"
+            },
+            "with": {
+              "type": "object",
+              "additionalProperties": true
             }
           }
         },
@@ -707,6 +711,10 @@
             "integrity": {
               "type": "string",
               "pattern": "^sha256-[A-Za-z0-9+/]{43}=$"
+            },
+            "with": {
+              "type": "object",
+              "additionalProperties": true
             }
           }
         },
@@ -733,6 +741,10 @@
             "integrity": {
               "type": "string",
               "pattern": "^sha256-[A-Za-z0-9+/]{43}=$"
+            },
+            "with": {
+              "type": "object",
+              "additionalProperties": true
             }
           }
         }
@@ -766,6 +778,78 @@
           }
         }
       ]
+    },
+    "configInputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "enum": ["object", "array", "string", "number", "integer", "boolean", "null"]
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/configInputSchema"
+          }
+        },
+        "required": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": {
+          "const": false
+        },
+        "items": {
+          "$ref": "#/$defs/configInputSchema"
+        },
+        "enum": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "default": {},
+        "description": {
+          "type": "string"
+        },
+        "format": {
+          "const": "uri"
+        },
+        "uniqueItems": {
+          "type": "boolean"
+        },
+        "minLength": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxLength": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minItems": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxItems": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minimum": {
+          "type": "number"
+        },
+        "maximum": {
+          "type": "number"
+        },
+        "exclusiveMinimum": {
+          "type": "number"
+        },
+        "exclusiveMaximum": {
+          "type": "number"
+        }
+      }
     }
   }
 }

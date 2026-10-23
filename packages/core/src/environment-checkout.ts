@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto"
+import { configBindingSnapshot } from "./config-inputs.js"
 import { environmentRepositoryBranch } from "./environment-branches.js"
 import { acquireOperationLock } from "./fs.js"
 import { inspectRepository } from "./git.js"
@@ -93,6 +94,7 @@ interface PhysicalObservation {
 }
 
 interface ObservedEnvironment {
+  inputBindings: string
   root: string
   configPath: string
   environment: string
@@ -260,6 +262,7 @@ export async function planEnvironmentCheckout(
   actions.sort((left, right) => left.path.localeCompare(right.path))
   const planId = checkoutPlanId({
     root: observed.root,
+    inputBindings: observed.inputBindings,
     environment: environmentId,
     desiredBranch: observed.desiredBranch,
     actions,
@@ -581,6 +584,7 @@ async function observeResolvedEnvironment(
   repositories.sort((left, right) => left.repository.localeCompare(right.repository))
   return {
     root: workspace.root,
+    inputBindings: configBindingSnapshot(workspace.configs),
     configPath,
     environment: environmentId,
     configured: Boolean(environment.checkout && environment.repositories.length > 0),

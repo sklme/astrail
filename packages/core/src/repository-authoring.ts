@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import { basename, isAbsolute, join, normalize, sep } from "node:path"
 import type { Repository } from "astrail-schema"
 import { parseDocument, stringify } from "yaml"
+import { configBindingSnapshot } from "./config-inputs.js"
 import { acquireOperationLock, atomicWrite, readTextIfExists } from "./fs.js"
 import { journalChange, journalTargets } from "./journal-trace.js"
 import { loadWorkspace } from "./manifest.js"
@@ -102,7 +103,9 @@ export async function planRepositoryAddition(
   const files: RepositoryFileChange[] = []
   const existing = addition ? workspace.config.repositories?.[addition.id] : undefined
   const registration = existing ? "reuse" : "add"
-  const configDigest = hash(stableStringify(loaded.effective))
+  const configDigest = hash(
+    stableStringify([loaded.effective, configBindingSnapshot(loaded.configs)]),
+  )
   let preparation: RepositoryPreparationPlan = { entries: [], diagnostics: [] }
 
   if (addition && existing && !sameRepository(existing, addition.repository)) {
@@ -263,7 +266,11 @@ export async function applyRepositoryAddition(
     if (hasErrors(diagnostics)) return result(data, diagnostics)
 
     const currentConfig = await loadWorkspace({ cwd: plan.root, config: plan.configPath })
-    if (hash(stableStringify(currentConfig.effective)) !== plan.configDigest) {
+    if (
+      hash(
+        stableStringify([currentConfig.effective, configBindingSnapshot(currentConfig.configs)]),
+      ) !== plan.configDigest
+    ) {
       diagnostics.push(
         diagnostic("ASTR7008", "error", "Repository plan configuration has changed", {
           remediation: "Preview the same request again and review the updated plan.",

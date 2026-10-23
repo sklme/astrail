@@ -14,14 +14,16 @@ describe("published Schema resources", () => {
       string,
       unknown
     >
-    const { metadata: configMetadata, ...configFields } = configSchema.properties as Record<
-      string,
-      unknown
-    >
+    const {
+      metadata: configMetadata,
+      inputs,
+      ...configFields
+    } = configSchema.properties as Record<string, unknown>
     expect(kind).toEqual({ const: "Workspace" })
     expect(runtime).toEqual((localSchema.properties as Record<string, unknown>).runtime)
     expect((configSchema.properties as Record<string, unknown>).runtime).toBeUndefined()
     expect(metadata).toEqual(configMetadata)
+    expect(inputs).toEqual({ $ref: "#/$defs/configInputSchema" })
     expect(configFields).toEqual(workspaceFields)
     expect(configSchema.required).toBeUndefined()
     expect(workspaceSchema.required).toEqual(effectiveWorkspaceSchema.required)

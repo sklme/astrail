@@ -97,6 +97,28 @@ async function resolveWorkspaceObserved(
     capability.lockedCommit = previous.resolvedCommit
     if (!capability.integrity && locked.integrity) capability.integrity = locked.integrity
   }
+  for (const capability of capabilityResolution.capabilities) {
+    const pointer = `/capabilities/${capability.id.replaceAll("~", "~0").replaceAll("/", "~1")}`
+    const introducing = loaded.provenance[pointer]?.find(
+      (entry) =>
+        entry.kind === "config" &&
+        entry.value !== null &&
+        typeof entry.value === "object" &&
+        "identity" in entry.value,
+    )
+    const owner = loaded.configs.find((config) => `config:${config.key}` === introducing?.layer)
+    if (!owner) continue
+    const replaced = Object.entries(loaded.provenance).some(
+      ([path, entries]) =>
+        (path === `${pointer}/identity` ||
+          path === `${pointer}/source` ||
+          path.startsWith(`${pointer}/source/`)) &&
+        entries.some((entry) => entry.kind !== "lock" && entry.source !== owner.manifestPath),
+    )
+    if (replaced) continue
+    capability.configKey = owner.key
+    if (owner.inputStatus === "invalid") capability.active = false
+  }
   const setupResolution = resolveConfigSetups(
     [
       ...loaded.configs,

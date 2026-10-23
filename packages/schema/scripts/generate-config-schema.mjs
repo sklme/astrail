@@ -5,7 +5,13 @@ import { readFileSync, writeFileSync } from "node:fs"
 export function authoredSchemas(effective) {
   const workspace = structuredClone(effective)
   workspace.$id = "https://sklme.github.io/astrail/schema/workspace/v1alpha1.json"
-  const atomic = new Set(["configReference", "configSetup", "identifier", "metadata"])
+  const atomic = new Set([
+    "configReference",
+    "configInputSchema",
+    "configSetup",
+    "identifier",
+    "metadata",
+  ])
   function partial(value) {
     if (Array.isArray(value)) return value.map(partial)
     if (!value || typeof value !== "object") return value
@@ -24,6 +30,7 @@ export function authoredSchemas(effective) {
   const config = structuredClone(workspace)
   config.$id = "https://sklme.github.io/astrail/schema/config/v1alpha1.json"
   config.title = "Astrail Shared Config v1alpha1"
+  config.properties.inputs = { $ref: "#/$defs/configInputSchema" }
   delete config.required
   delete config.properties.runtime
   delete config.properties.kind

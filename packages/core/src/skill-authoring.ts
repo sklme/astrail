@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import { isAbsolute, normalize, sep } from "node:path"
 import type { Capability } from "astrail-schema"
 import { parseDocument } from "yaml"
+import { configBindingSnapshot } from "./config-inputs.js"
 import { acquireOperationLock, atomicWrite, readTextIfExists } from "./fs.js"
 import { journalChange, journalTargets } from "./journal-trace.js"
 import { loadWorkspace } from "./manifest.js"
@@ -48,6 +49,7 @@ export interface SkillFileChange {
 }
 
 export interface SkillAdditionPlan {
+  inputBindings?: string
   operation: "skill-add"
   planId: string
   root: string
@@ -122,6 +124,7 @@ export async function planSkillAddition(
   const planId = hash(
     stableStringify({
       root: loaded.root,
+      inputBindings: configBindingSnapshot(loaded.configs),
       addition,
       files: files.map(({ path, beforeDigest, afterDigest, capabilityValue }) => ({
         path,
@@ -144,6 +147,7 @@ export async function planSkillAddition(
     planId,
     root: loaded.root,
     configPath: loaded.configPath,
+    inputBindings: configBindingSnapshot(loaded.configs),
     addition,
     files,
     actions: files.map((file) => ({
@@ -184,6 +188,17 @@ export async function applySkillAddition(
     return result(data, diagnostics)
   }
 
+  if (plan.inputBindings !== undefined) {
+    const current = await loadWorkspace({ cwd: plan.root, config: plan.configPath, install: true })
+    if (configBindingSnapshot(current.configs) !== plan.inputBindings)
+      return result(data, [
+        diagnostic(
+          "ASTR1119",
+          "error",
+          "Config input bindings changed after preview; prepare a new plan",
+        ),
+      ])
+  }
   const lock = await acquireOperationLock(plan.root)
   const originals = new Map<string, string | undefined>()
   let writesStarted = false

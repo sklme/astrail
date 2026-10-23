@@ -1,6 +1,6 @@
 {
   "name": "astrail-target-shared",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "Shared projection engine and built-in Skills for Astrail targets",
   "license": "Apache-2.0",
   "repository": {

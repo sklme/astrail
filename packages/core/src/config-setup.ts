@@ -13,7 +13,7 @@ export function resolveConfigSetups(
   const diagnostics: Diagnostic[] = []
   const entries: ConfigSetupEntry[] = []
   for (const config of configs) {
-    if (!config.available || config.setup?.mode !== "skill") continue
+    if (config.setup?.mode !== "skill") continue
     const skill = config.setup.skill
     const matches = capabilities.filter((item) => item.identity === skill && item.kind === "skill")
     const capability = matches.length === 1 ? matches[0] : undefined
@@ -37,9 +37,13 @@ export function resolveConfigSetups(
     }
     entries.push({
       config: config.manifestPath,
+      ...(config.declaresInputs ? { configKey: config.key } : {}),
+      ...(config.declaresInputs && config.inputsDigest
+        ? { inputsDigest: config.inputsDigest, bindingDigest: config.bindingDigest }
+        : {}),
       mode: "skill",
       skill,
-      status: capability?.active ? "pending" : "blocked",
+      status: config.available && capability?.active ? "pending" : "blocked",
       ...(capability ? { alias: capability.exposeAs } : {}),
     })
   }

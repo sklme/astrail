@@ -12,16 +12,25 @@ export type ConfigReference =
   | string
   | {
       local: string;
+      with?: {
+        [k: string]: unknown;
+      };
     }
   | {
       http: string;
       integrity?: string;
+      with?: {
+        [k: string]: unknown;
+      };
     }
   | {
       git: string;
       ref?: string;
       path?: string;
       integrity?: string;
+      with?: {
+        [k: string]: unknown;
+      };
     };
 export type ConfigSetup =
   | {
@@ -67,6 +76,7 @@ export interface AstrailSharedConfigV1Alpha1 {
    */
   extends?: ConfigReference[];
   setup?: ConfigSetup;
+  inputs?: ConfigInputSchema;
 }
 export interface Metadata {
   name?: string;
@@ -220,4 +230,29 @@ export interface Target {
   type?: "codex" | "codebuddy";
   primary?: boolean;
   extensions?: Extensions;
+}
+export interface ConfigInputSchema {
+  type: "object" | "array" | "string" | "number" | "integer" | "boolean" | "null";
+  properties?: {
+    [k: string]: ConfigInputSchema;
+  };
+  required?: string[];
+  additionalProperties?: false;
+  items?: ConfigInputSchema;
+  /**
+   * @minItems 1
+   */
+  enum?: [unknown, ...unknown[]];
+  default?: unknown;
+  description?: string;
+  format?: "uri";
+  uniqueItems?: boolean;
+  minLength?: number;
+  maxLength?: number;
+  minItems?: number;
+  maxItems?: number;
+  minimum?: number;
+  maximum?: number;
+  exclusiveMinimum?: number;
+  exclusiveMaximum?: number;
 }

@@ -13,6 +13,12 @@ import {
 import { isMap, isScalar, isSeq, LineCounter, parseDocument } from "yaml"
 import { composeLayers } from "./composition.js"
 import {
+  bindConfigInputs,
+  type ConfigInputBinding,
+  type InputOrigin,
+  object,
+} from "./config-inputs.js"
+import {
   assertConfigContained,
   configCacheRoot,
   configIntegrity,
@@ -363,12 +369,15 @@ async function loadConfigLayers(
   const visiting = new Set<string>()
   const observedByKey = new Map<string, LoadedConfig>()
   const gitRefs = new Map<string, string>()
+  const contracts = new Map<string, unknown>()
   const lockedEntries = lock && isRecord(lock.configs) ? lock.configs : {}
 
   const visit = async (
     reference: unknown,
     declaringPath: string,
     parent?: ConfigSource,
+    parentBinding?: ConfigInputBinding,
+    referencePointer = "/extends/0/with",
   ): Promise<void> => {
     if (visiting.size >= 64 || observedByKey.size >= 512) {
       diagnostics.push(
@@ -419,8 +428,41 @@ async function loadConfigLayers(
       }
       gitRefs.set(coordinate, source.ref ?? "")
     }
+    const referenceOrigin: InputOrigin = {
+      file: declaringPath,
+      pointer: referencePointer,
+      kind: "with",
+    }
+    const supplied = object(reference) && object(reference.with) ? reference.with : {}
+    const bind = (config: LoadedConfig) =>
+      bindConfigInputs({
+        schema: contracts.get(key),
+        supplied,
+        file: config.manifestPath,
+        reference: referenceOrigin,
+        parent: parentBinding,
+        key,
+        integrity: config.integrity,
+        commit: config.resolvedCommit,
+      })
     const previous = observedByKey.get(key)
     if (previous) {
+      previous.references?.push(referenceOrigin)
+      if (previous.inputStatus === "resolved") {
+        try {
+          const binding = bind(previous)
+          if (binding.inputsDigest !== previous.inputsDigest)
+            throw new Error("Repeated config references specify different normalized inputs")
+        } catch (error) {
+          previous.inputStatus = "invalid"
+          previous.available = false
+          diagnostics.push(
+            diagnostic("ASTR1117", "error", String(error), {
+              details: { references: previous.references },
+            }),
+          )
+        }
+      }
       if (
         declaredIntegrity &&
         previous.expectedIntegrity &&
@@ -462,6 +504,8 @@ async function loadConfigLayers(
       source,
       manifestPath,
       available: false,
+      inputStatus: "pending",
+      references: [referenceOrigin],
       ...(expectedIntegrity ? { expectedIntegrity } : {}),
       ...(expectedCommit ? { expectedCommit } : {}),
     }
@@ -534,6 +578,19 @@ async function loadConfigLayers(
           )
         await validateGitConfigResources(parsed.value, manifestPath, configCacheRoot(root, source))
       }
+      contracts.set(key, parsed.value.inputs)
+      observed.declaresInputs = parsed.value.inputs !== undefined
+      try {
+        Object.assign(observed, bind(observed))
+      } catch (error) {
+        observed.inputStatus = "invalid"
+        parsed.diagnostics.push(
+          diagnostic("ASTR1116", "error", String(error), {
+            details: { reference: referenceOrigin, config: manifestPath },
+          }),
+        )
+      }
+      if (isRecord(parsed.value.setup)) observed.setup = parsed.value.setup as ConfigSetup
       diagnostics.push(...parsed.diagnostics)
       const invalid = parsed.diagnostics.some((item) => item.severity === "error")
       if (
@@ -548,8 +605,17 @@ async function loadConfigLayers(
       observed.available = !invalid
       if (isRecord(parsed.value.setup)) observed.setup = parsed.value.setup as ConfigSetup
       visiting.add(key)
-      for (const dependency of Array.isArray(parsed.value.extends) ? parsed.value.extends : [])
-        await visit(dependency, manifestPath, source)
+      for (const [index, dependency] of (Array.isArray(parsed.value.extends)
+        ? parsed.value.extends
+        : []
+      ).entries())
+        await visit(
+          dependency,
+          manifestPath,
+          source,
+          observed as ConfigInputBinding,
+          `/extends/${index}/with`,
+        )
       visiting.delete(key)
       configs.push(observed)
       if (invalid) return
@@ -573,8 +639,8 @@ async function loadConfigLayers(
       )
     }
   }
-  for (const reference of Array.isArray(shared.extends) ? shared.extends : [])
-    await visit(reference, configPath)
+  for (const [index, reference] of (Array.isArray(shared.extends) ? shared.extends : []).entries())
+    await visit(reference, configPath, undefined, undefined, `/extends/${index}/with`)
   return layers
 }
 
@@ -670,6 +736,7 @@ function configContributions(value: Record<string, unknown>): Record<string, unk
   delete copy.extends
   delete copy.setup
   delete copy.requires
+  delete copy.inputs
   return copy
 }
 

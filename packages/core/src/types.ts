@@ -1,4 +1,5 @@
 import type { AstrailWorkspaceV1Alpha1, CapabilitySource, ConfigSetup } from "astrail-schema"
+import type { ConfigInputBinding, InputOrigin } from "./config-inputs.js"
 import type { AstrailRuntimeCompatibility } from "./runtime-requirements.js"
 
 export type DiagnosticSeverity = "error" | "warning" | "information"
@@ -79,7 +80,9 @@ export type ConfigSource =
   | { type: "http"; url: string }
   | { type: "git"; url: string; ref?: string; path: string }
 
-export interface LoadedConfig {
+export interface LoadedConfig extends Partial<ConfigInputBinding> {
+  references?: InputOrigin[]
+  declaresInputs?: boolean
   key: string
   source: ConfigSource
   manifestPath: string
@@ -92,6 +95,9 @@ export interface LoadedConfig {
 }
 
 export interface ConfigSetupEntry {
+  configKey?: string
+  inputsDigest?: string
+  bindingDigest?: string
   config: string
   mode: "skill"
   status: "pending" | "blocked"
@@ -154,6 +160,7 @@ export interface ResolvedContextSource {
 }
 
 export interface ResolvedCapability {
+  configKey?: string
   id: string
   identity: string
   version: string

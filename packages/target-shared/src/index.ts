@@ -18,6 +18,8 @@ import {
   atomicWrite,
   type ChangeAction,
   type ChangePlan,
+  canonicalJson,
+  configBindingSnapshot,
   type Diagnostic,
   diagnostic,
   type GitCapabilityResolution,
@@ -25,6 +27,7 @@ import {
   journalChange,
   journalStep,
   journalTargets,
+  loadWorkspace,
   pathExists,
   type ResolvedCapability,
   type ResolvedWorkspace,
@@ -33,6 +36,8 @@ import {
   result,
   stageGitCapability,
 } from "astrail-core"
+
+import { renderSkillGitignore } from "./skill-gitignore.js"
 
 export type ProjectionOwnership =
   | "user-owned"
@@ -83,6 +88,8 @@ export interface ProjectionHealth {
 }
 
 export interface ProjectionPlan {
+  inputBindings?: string
+  astrailVersion?: string
   root: string
   strategy: "link" | "copy" | "manifest"
   agentsPath: string
@@ -92,10 +99,21 @@ export interface ProjectionPlan {
   changePlan: ChangePlan
   changes: Array<{
     path: string
-    kind: "managed-region" | "link" | "copy" | "acquire" | "relocate" | "manifest" | "remove"
+    kind:
+      | "gitignore"
+      | "inputs"
+      | "managed-region"
+      | "link"
+      | "copy"
+      | "acquire"
+      | "relocate"
+      | "manifest"
+      | "remove"
     description: string
     capability?: ResolvedCapability
     expectedIntegrity?: string
+    content?: string
+    before?: string
     previousArtifact?: ProjectionArtifact
   }>
   diagnostics: Diagnostic[]
@@ -203,6 +221,8 @@ export function createProjectionTarget(definition: ProjectionTargetDefinition) {
         )
         .map((capability) => `${CONFIG_SETUPS_DIRECTORY}/${capability.exposeAs}`),
     )
+    for (const config of workspace.configs.filter((item) => item.declaresInputs))
+      sharedSetupPaths.add(`.astrail/config-inputs/${config.key}.json`)
     const previous = await readProjectionManifest(workspace.root, sharedSetupPaths)
     const managed = renderManagedInstructions(workspace)
     let agentsContent = currentAgents
@@ -450,11 +470,81 @@ export function createProjectionTarget(definition: ProjectionTargetDefinition) {
       }
     }
 
+    for (const config of workspace.configs.filter(
+      (item) => item.declaresInputs && item.inputStatus === "resolved",
+    )) {
+      const artifactPath = `.astrail/config-inputs/${config.key}.json`
+      const destination = join(workspace.root, artifactPath)
+      const content = `${canonicalJson({ root: workspace.root, configKey: config.key, source: config.source, inputs: config.inputs, inputsDigest: config.inputsDigest, bindingDigest: config.bindingDigest, inputOrigins: config.inputOrigins })}\n`
+      const artifact: ProjectionArtifact = {
+        path: artifactPath,
+        ownership: "generated",
+        identity: `config-inputs:${config.key}`,
+        integrity: hash(content),
+      }
+      artifacts.push(artifact)
+      try {
+        await assertDestination(workspace.root, destination, false)
+        const before = await readTextIfExists(destination)
+        const owned = previous?.artifacts.find((item) => item.path === artifactPath)
+        if (
+          before !== undefined &&
+          (!owned || (hash(before) !== owned.integrity && before !== content))
+        )
+          throw new Error(`Config inputs path is unowned or modified: ${artifactPath}`)
+        if (before !== content)
+          changes.push({
+            path: destination,
+            kind: "inputs",
+            content,
+            ...(before !== undefined ? { before } : {}),
+            description: `Write inputs for config ${config.key}`,
+          })
+      } catch (error) {
+        diagnostics.push(diagnostic("ASTR5033", "error", String(error)))
+      }
+    }
+
+    const ignorePath = join(workspace.root, SKILLS_DIRECTORY, ".gitignore")
+    try {
+      await assertDestination(workspace.root, ignorePath, false)
+      const before = await readTextIfExists(ignorePath)
+      const names = artifacts
+        .filter(
+          (artifact) =>
+            ["derived-link", "derived-copy"].includes(artifact.ownership) &&
+            artifact.path.startsWith(`${SKILLS_DIRECTORY}/`),
+        )
+        .map((artifact) => artifact.path.slice(SKILLS_DIRECTORY.length + 1))
+      const content = renderSkillGitignore(before ?? "", names)
+      if (content !== (before ?? ""))
+        changes.push({
+          path: ignorePath,
+          kind: "gitignore",
+          description: `Ignore Astrail-generated ${definition.id} Skills in Git`,
+          content,
+          ...(before !== undefined ? { before } : {}),
+        })
+    } catch (error) {
+      diagnostics.push(diagnostic("ASTR5035", "error", String(error)))
+    }
+
     const manifestPath = projectionManifestPath(workspace.root)
     const desiredArtifactPaths = new Set(artifacts.map((artifact) => artifact.path))
     for (const artifact of previous?.artifacts ?? []) {
       if (artifact.ownership === "managed-region" || desiredArtifactPaths.has(artifact.path))
         continue
+      if (artifact.identity.startsWith("config-inputs:")) {
+        try {
+          const destination = join(workspace.root, artifact.path)
+          await assertDestination(workspace.root, destination, false)
+          const before = await readTextIfExists(destination)
+          if (before !== undefined && hash(before) !== artifact.integrity)
+            throw new Error(`Config inputs path was modified: ${artifact.path}`)
+        } catch (error) {
+          diagnostics.push(diagnostic("ASTR5033", "error", String(error)))
+        }
+      }
       const migratingSetup =
         setupIdentities.has(artifact.identity) && artifact.path.startsWith(`${SKILLS_DIRECTORY}/`)
       if (migratingSetup && !(await setupProjectionCanBeRemoved(workspace.root, artifact))) {
@@ -480,6 +570,8 @@ export function createProjectionTarget(definition: ProjectionTargetDefinition) {
     }
     return {
       root: workspace.root,
+      inputBindings: configBindingSnapshot(workspace.configs),
+      astrailVersion: workspace.runtime.version,
       strategy,
       agentsPath,
       agentsContent,
@@ -489,14 +581,13 @@ export function createProjectionTarget(definition: ProjectionTargetDefinition) {
         operation: "sync",
         actions: changes.map((change, index) => ({
           id: `${definition.id}:${index}:${relative(workspace.root, change.path)}`,
-          type:
-            change.kind === "managed-region" || change.kind === "manifest"
-              ? "write"
-              : change.kind === "acquire"
-                ? "acquire"
-                : change.kind === "remove"
-                  ? "remove"
-                  : "project",
+          type: ["managed-region", "manifest", "gitignore"].includes(change.kind)
+            ? "write"
+            : change.kind === "acquire"
+              ? "acquire"
+              : change.kind === "remove"
+                ? "remove"
+                : "project",
           target: change.path,
           description: change.description,
           requiresAuthorization: change.kind === "acquire",
@@ -545,6 +636,21 @@ export function createProjectionTarget(definition: ProjectionTargetDefinition) {
     if (options.dryRun || plan.diagnostics.some((item) => item.severity === "error")) {
       return result(plan, plan.diagnostics)
     }
+    if (plan.inputBindings !== undefined) {
+      const current = await loadWorkspace({
+        cwd: plan.root,
+        install: true,
+        ...(plan.astrailVersion ? { astrailVersion: plan.astrailVersion } : {}),
+      })
+      if (configBindingSnapshot(current.configs) !== plan.inputBindings)
+        return result(plan, [
+          diagnostic(
+            "ASTR5034",
+            "error",
+            "Config input bindings changed after preview; prepare a new plan",
+          ),
+        ])
+    }
     if (plan.changePlan.actions.length === 0) return result(plan, plan.diagnostics)
     if (
       plan.changePlan.actions.some((action) => action.requiresAuthorization) &&
@@ -569,6 +675,44 @@ export function createProjectionTarget(definition: ProjectionTargetDefinition) {
     const diagnostics = [...plan.diagnostics]
     const lock = await acquireOperationLock(plan.root)
     try {
+      for (const change of plan.changes.filter((item) => item.kind === "gitignore")) {
+        try {
+          await assertDestination(plan.root, change.path, false)
+          const current = await readTextIfExists(change.path)
+          if (current !== change.before && current !== change.content)
+            throw new Error("Skill .gitignore changed after preview; prepare a new plan")
+        } catch (error) {
+          return result(plan, [diagnostic("ASTR5035", "error", String(error))])
+        }
+      }
+      for (const change of plan.changes) {
+        if (change.kind === "inputs") {
+          await assertDestination(plan.root, change.path, false)
+          const current = await readTextIfExists(change.path)
+          if (current !== change.before && current !== change.content)
+            return result(plan, [
+              diagnostic("ASTR5033", "error", "Config inputs changed after preview"),
+            ])
+        }
+        if (
+          change.kind === "remove" &&
+          previous?.artifacts.some(
+            (item) =>
+              join(plan.root, item.path) === change.path &&
+              item.identity.startsWith("config-inputs:"),
+          )
+        ) {
+          await assertDestination(plan.root, change.path, false)
+          const artifact = previous.artifacts.find(
+            (item) => join(plan.root, item.path) === change.path,
+          )
+          const current = await readTextIfExists(change.path)
+          if (current !== undefined && hash(current) !== artifact?.integrity)
+            return result(plan, [
+              diagnostic("ASTR5033", "error", "Config inputs changed after preview"),
+            ])
+        }
+      }
       if (definition.id === "codebuddy") {
         for (const change of plan.changes) {
           await assertDestination(
@@ -703,6 +847,26 @@ export function createProjectionTarget(definition: ProjectionTargetDefinition) {
         }
       }
       if (diagnostics.some((item) => item.severity === "error")) return result(plan, diagnostics)
+      for (const change of plan.changes.filter((item) => item.kind === "inputs")) {
+        if (change.content === undefined) continue
+        await journalBeforeMutation()
+        await atomicWrite(change.path, change.content)
+        journalChange({
+          kind: "projection",
+          target: relative(plan.root, change.path),
+          action: "write-inputs",
+        })
+      }
+      for (const change of plan.changes.filter((item) => item.kind === "gitignore")) {
+        if (change.content === undefined) continue
+        await journalBeforeMutation()
+        await atomicWrite(change.path, change.content)
+        journalChange({
+          kind: "projection",
+          target: relative(plan.root, change.path),
+          action: "write-skill-gitignore",
+        })
+      }
       if (plan.changes.some((change) => change.kind === "managed-region")) {
         await atomicWrite(plan.agentsPath, plan.agentsContent)
       }
@@ -1093,7 +1257,8 @@ export function createProjectionTarget(definition: ProjectionTargetDefinition) {
     const shared =
       peer?.artifacts.filter(
         (artifact) =>
-          artifact.path.startsWith(`${CONFIG_SETUPS_DIRECTORY}/`) &&
+          (artifact.path.startsWith(`${CONFIG_SETUPS_DIRECTORY}/`) ||
+            artifact.path.startsWith(".astrail/config-inputs/")) &&
           sharedPaths.has(artifact.path) &&
           !own?.artifacts.some((item) => item.path === artifact.path),
       ) ?? []

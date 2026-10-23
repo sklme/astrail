@@ -3,6 +3,7 @@ import { lstat, readdir, realpath, rm } from "node:fs/promises"
 import { isAbsolute, join, normalize, relative, resolve, sep } from "node:path"
 import type { Capability } from "astrail-schema"
 import { parse, parseDocument } from "yaml"
+import { configBindingSnapshot } from "./config-inputs.js"
 import { acquireOperationLock, atomicWrite, pathExists, readTextIfExists } from "./fs.js"
 import { journalChange, journalTargets } from "./journal-trace.js"
 import { loadWorkspace } from "./manifest.js"
@@ -118,6 +119,7 @@ export interface SkillImportFileChange {
 }
 
 export interface SkillImportPlan {
+  inputBindings?: string
   operation: "skill-import"
   planId: string
   root: string
@@ -357,6 +359,7 @@ export async function planSkillImport(
   const planId = hash(
     stableStringify({
       root: loaded.root,
+      inputBindings: configBindingSnapshot(loaded.configs),
       additions,
       sources,
       files: files.map(({ path, beforeDigest, afterDigest, capabilityValues }) => ({
@@ -377,6 +380,7 @@ export async function planSkillImport(
     planId,
     root: loaded.root,
     configPath: loaded.configPath,
+    inputBindings: configBindingSnapshot(loaded.configs),
     additions,
     sources,
     files,
@@ -421,6 +425,17 @@ export async function applySkillImport(
     return result(data, diagnostics)
   }
 
+  if (plan.inputBindings !== undefined) {
+    const current = await loadWorkspace({ cwd: plan.root, config: plan.configPath, install: true })
+    if (configBindingSnapshot(current.configs) !== plan.inputBindings)
+      return result(data, [
+        diagnostic(
+          "ASTR1119",
+          "error",
+          "Config input bindings changed after preview; prepare a new plan",
+        ),
+      ])
+  }
   const lock = await acquireOperationLock(plan.root)
   const originals = new Map<string, string | undefined>()
   let writesStarted = false

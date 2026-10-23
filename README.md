@@ -9,7 +9,7 @@ Astrail organizes repositories, environments, shared configuration, context, and
 Node.js 22.12+ and Git are required. A global CLI is convenient when you maintain several workspaces:
 
 ```sh
-npm install -g astrail@0.13.0
+npm install -g astrail@0.15.0
 astrail --cwd ./my-workspace init --name my-workspace --runtime global
 cd my-workspace
 astrail --json status
@@ -62,6 +62,20 @@ Use `astrail status --json` to inspect `runtime.version`, `mode`, `modeSource`, 
 
 After switching and syncing, optionally remove only the obsolete CLI dependency with the workspace's package manager. Other dependencies and lockfile contents are preserved by configuration changes. Use `--help` for command options and `--json` for structured output.
 
+## Shared configuration inputs and generated Skills
+
+Version 0.15.0 supports typed parameters on shared configuration references through
+`extends[].with`. Shared configs declare an `inputs` schema with defaults and can
+forward values explicitly with `$input`. Inspect resolved bindings with
+`astrail --json config inputs --capability <identity>`; parameters reference workspace
+repository IDs rather than duplicating checkout URLs.
+
+After reviewing `astrail install --dry-run`, install maintains exact generated Skill
+paths in `.agents/skills/.gitignore` and `.codebuddy/skills/.gitignore`. Commit these
+ignore files, the workspace definition and lockfiles, and your maintained Skill
+sources. User rules and unrelated handwritten Skills remain intact. Already tracked
+projections require an explicit Git index migration; install never changes the index.
+
 ## Configuration and resources
 
 See [the minimal workspace](examples/minimal/astrail.yaml) and [shared configuration examples](examples/configs). Repository URLs in examples are placeholders; replace them with your own. Examples containing adjacent files should be consumed as a directory or pinned Git source, rather than as a standalone HTTP file.
@@ -79,7 +93,9 @@ Version 0.11.0 removes the bundled `astrail-records` Skill and its default docum
 | `astrail` | CLI and workspace-local runtime |
 | `astrail-core` | Portable configuration, lifecycle, and diagnostics |
 | `astrail-schema` | JSON Schemas and generated types |
-| `astrail-target-codex` | Codex guidance and built-in Skills |
+| `astrail-target-shared` | Shared projection engine and built-in Skills |
+| `astrail-target-codex` | Codex guidance and Skill projections |
+| `astrail-target-codebuddy` | CodeBuddy guidance and Skill projections |
 | `astrail-templates` | Versioned template catalog (currently empty) |
 
 Public releases started at 0.9.1. Package changelogs also describe earlier development versions that were not published through this repository. Full documentation is not included here. This README, CLI help, examples, and public resources provide the public usage entry points.

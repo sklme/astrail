@@ -672,6 +672,46 @@ function addConfigCommands(program: Command, writer: OutputWriter): void {
     .command("config")
     .description("inspect effective configuration and provenance")
   config
+    .command("inputs")
+    .description("read current shared config inputs and field provenance without network access")
+    .option("--key <key>", "config source key")
+    .option("--capability <identity>", "capability identity or unique alias")
+    .action(async (options: { key?: string; capability?: string }, command: Command) => {
+      await execute(
+        "config inputs",
+        command,
+        writer,
+        async (context) => {
+          const workspace = await resolveWorkspace(context)
+          const diagnostics = [...workspace.diagnostics]
+          let key = options.key
+          if (Boolean(key) === Boolean(options.capability))
+            diagnostics.push(
+              diagnostic("ASTR1118", "error", "Specify exactly one of --key or --capability"),
+            )
+          if (options.capability) {
+            const exact = workspace.capabilities.filter(
+              (item) => item.identity === options.capability,
+            )
+            const matches = exact.length
+              ? exact
+              : workspace.capabilities.filter((item) => item.exposeAs === options.capability)
+            if (matches.length === 1) key = matches[0]?.configKey
+          }
+          const binding = workspace.configs.find((item) => item.key === key)
+          if (!binding)
+            diagnostics.push(
+              diagnostic("ASTR1118", "error", "No unique shared config input binding found"),
+            )
+          return result(
+            { root: workspace.root, ...(binding ? { ...binding, configKey: binding.key } : {}) },
+            diagnostics,
+          )
+        },
+        (data) => JSON.stringify(data, null, 2),
+      )
+    })
+  config
     .command("show")
     .option("--format <format>", "yaml or json", "yaml")
     .option("--provenance", "include the provenance sidecar")

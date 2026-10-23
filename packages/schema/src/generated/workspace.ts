@@ -12,16 +12,25 @@ export type ConfigReference =
   | string
   | {
       local: string;
+      with?: {
+        [k: string]: unknown;
+      };
     }
   | {
       http: string;
       integrity?: string;
+      with?: {
+        [k: string]: unknown;
+      };
     }
   | {
       git: string;
       ref?: string;
       path?: string;
       integrity?: string;
+      with?: {
+        [k: string]: unknown;
+      };
     };
 export type ConfigSetup =
   | {

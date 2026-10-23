@@ -282,6 +282,7 @@ export interface WorkspaceInstallData {
 interface CliConfigSetupEntry extends Omit<ConfigSetupEntry, "status"> {
   status: "blocked" | "planned" | "available"
   path?: string
+  inputsPath?: string
   instruction?: string
 }
 
@@ -308,8 +309,16 @@ async function configSetupHandoff(
           : success && (await pathExists(path))
             ? "available"
             : "blocked"
+      const inputsPath =
+        entry.configKey &&
+        projection?.artifacts.some((item) => item.identity === `config-inputs:${entry.configKey}`)
+          ? resolve(workspace.root, ".astrail/config-inputs", `${entry.configKey}.json`)
+          : undefined
       return {
         ...entry,
+        ...(status === "available" && inputsPath && (await pathExists(inputsPath))
+          ? { inputsPath }
+          : {}),
         status,
         ...(path ? { path } : {}),
         ...(status === "available" ? { instruction: SETUP_HANDOFF_INSTRUCTION } : {}),
